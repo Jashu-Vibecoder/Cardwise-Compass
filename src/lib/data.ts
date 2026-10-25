@@ -18,6 +18,7 @@ import { searchCatalogRecords } from '../domain/catalog-search';
 import { readFunctionErrorMessage } from './function-errors';
 import { findWalletCardToUpdate } from '../domain/wallet-cards';
 import { hasBudgetConflict } from '../domain/budgets';
+import { clearRemovedCardLinks } from '../domain/wallet-cards-links';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -302,6 +303,7 @@ export async function removeWalletCard(id: string) {
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
     data.cards = data.cards.filter((card) => card.id !== id);
+    data.transactions = clearRemovedCardLinks(data.transactions, id);
     writeLocalWorkspace(data);
     return;
   }
