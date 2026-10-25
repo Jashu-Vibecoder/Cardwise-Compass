@@ -65,7 +65,7 @@ The app can run locally with a fictional preview workspace. Connect your own Sup
 
 5. Open the local URL printed by Vite. By default, it is `http://localhost:5173`.
 
-No environment file is needed for the fictional preview workspace. It is available in development when Supabase is not configured.
+No environment file is needed for the fictional preview workspace. It is available in development when Supabase is not configured. A public demo can also be opened with `?demo=1` or the **Explore demo** button. The demo uses a separate browser-storage key and never reads from or writes to Supabase; its fictional edits stay in that browser.
 
 ## Supabase setup
 
