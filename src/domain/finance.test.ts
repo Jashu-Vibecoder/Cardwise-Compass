@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetSpent, calculateRewardMinor, categoryTotals, creditPosition, monthlySummary, sumTransactions } from './finance';
+import { budgetSpent, calculateCardRewards, calculateRewardMinor, categoryTotals, creditPosition, monthlySummary, sumTransactions } from './finance';
 import { parseINRAmountOrZero } from '../lib/format';
 import type { Budget, Category, Transaction } from './types';
 
@@ -50,6 +50,35 @@ describe('financial calculations', () => {
     expect(calculateRewardMinor(10_001, 500)).toBe(500);
     expect(calculateRewardMinor(10_001, 500, 375)).toBe(375);
     expect(calculateRewardMinor(-1, 500)).toBe(0);
+  });
+
+  it('applies excluded reward categories stored as category slugs', () => {
+    const card = {
+      id: 'wallet-1', user_id: user, catalog_card_id: 'catalog-1', nickname: null,
+      card_type: 'credit' as const, last_four: null, monthly_budget_minor: null,
+      credit_limit_minor: null, statement_balance_minor: null, due_date: null,
+      minimum_due_minor: null, reward_points: null, personal_notes: null, is_demo: false,
+      catalog: { id: 'catalog-1', issuer_name: 'Bank', card_name: 'Rewards', category: null, aliases: [], official_product_url: null, source_url: null, verification_status: 'verified' as const, last_verified_at: null, benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null },
+    };
+    const rule = {
+      id: 'rule-1', catalog_card_id: 'catalog-1', label: 'Online rewards', channel: 'any' as const,
+      rate_basis_points: 500, monthly_cap_minor: null, cap_period: 'none' as const,
+      category_id: null, excluded_categories: ['travel'], source_url: 'https://issuer.example/rules',
+      verified_at: '2026-10-01', valid_from: '2026-01-01', valid_until: null,
+    };
+    const rows: Transaction[] = [
+      { ...transactions[0], id: 'reward-food', card_id: card.id, spend_channel: 'online' },
+      { ...transactions[1], id: 'reward-travel', category_id: 'category-travel-id', card_id: card.id, spend_channel: 'online' },
+    ];
+
+    const rewardCategories: Category[] = [
+      { id: 'food-id', slug: 'food', name: 'Food', color: '#f69d56' },
+      { id: 'category-travel-id', slug: 'travel', name: 'Travel', color: '#6aa9ea' },
+    ];
+    expect(calculateCardRewards(rows, [card], [rule], '2026-10', rewardCategories)[0]).toMatchObject({
+      eligibleSpendMinor: 10_000,
+      estimatedRewardMinor: 500,
+    });
   });
 
   it('calculates combined utilization only from cards with both statement values', () => {

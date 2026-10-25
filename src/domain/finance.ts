@@ -114,7 +114,8 @@ export function calculateRewardMinor(amountMinor: number, rateBasisPoints: numbe
   return remainingCapMinor == null ? raw : Math.max(0, Math.min(raw, remainingCapMinor));
 }
 
-export function calculateCardRewards(transactions: Transaction[], cards: WalletCard[], rules: RewardRule[], month: string) {
+export function calculateCardRewards(transactions: Transaction[], cards: WalletCard[], rules: RewardRule[], month: string, categories: Category[] = []) {
+  const categorySlugs = new Map(categories.map((category) => [category.id, category.slug]));
   return cards.map((card) => {
     const cardRules = rules.filter((rule) => rule.catalog_card_id === card.catalog_card_id && rule.verified_at && rule.cap_period !== 'statement_cycle');
     const estimates = cardRules.map((rule) => {
@@ -127,7 +128,7 @@ export function calculateCardRewards(transactions: Transaction[], cards: WalletC
           && (!rule.valid_until || date <= rule.valid_until)
           && (rule.channel === 'any' || rule.channel === transaction.spend_channel)
           && (!rule.category_id || rule.category_id === transaction.category_id)
-          && !rule.excluded_categories.includes(transaction.category_id ?? '');
+          && !rule.excluded_categories.includes(categorySlugs.get(transaction.category_id ?? '') ?? '');
       });
       const eligibleSpendMinor = qualifying.reduce((sum, row) => sum + row.amount_minor, 0);
       const rawRewardMinor = qualifying.reduce((sum, row) => sum + calculateRewardMinor(row.amount_minor, rule.rate_basis_points), 0);

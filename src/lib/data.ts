@@ -214,7 +214,10 @@ export async function loadWorkspace(): Promise<WorkspaceData | null> {
     cards: (cardsRes.data as Array<WalletCard & { catalog: CatalogCard }>).map((card) => ({ ...card, catalog: card.catalog })),
     budgets: budgetsRes.data as Budget[],
     transactions: transactionsRes.data as Transaction[],
-    rewardRules: rewardRulesRes.data as RewardRule[],
+    rewardRules: (rewardRulesRes.data as Array<RewardRule & { qualifying_category_id?: string | null }>).map((rule) => ({
+      ...rule,
+      category_id: rule.qualifying_category_id ?? rule.category_id ?? null,
+    })),
   };
 }
 

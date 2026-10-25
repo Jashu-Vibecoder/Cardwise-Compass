@@ -7,7 +7,7 @@ import { formatINR, monthLabel } from '../lib/format';
 
 export function RewardsPage() {
   const { data, month } = useApp();
-  const estimates = useMemo(() => calculateCardRewards(data.transactions, data.cards, data.rewardRules, month), [data.transactions, data.cards, data.rewardRules, month]);
+  const estimates = useMemo(() => calculateCardRewards(data.transactions, data.cards, data.rewardRules, month, data.categories), [data.transactions, data.cards, data.rewardRules, data.categories, month]);
   const available = estimates.filter((item) => item.rules.length > 0);
   const earnedMinor = available.reduce((sum, item) => sum + item.estimatedRewardMinor, 0);
   const eligibleSpendMinor = available.reduce((sum, item) => sum + item.eligibleSpendMinor, 0);
