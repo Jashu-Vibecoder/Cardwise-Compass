@@ -6,17 +6,19 @@ import { Modal } from '../components/Modal';
 import { BudgetForm } from '../components/BudgetForm';
 import { useToast } from '../lib/use-toast';
 import { budgetSpent } from '../domain/finance';
-import { formatINR, monthLabel } from '../lib/format';
+import { formatCurrency, monthLabel } from '../lib/format';
 import { removeBudget, saveBudget } from '../lib/data';
 import type { Budget, BudgetInput } from '../domain/types';
 
 export function BudgetsPage() {
   const { data, month, refresh, setBusy, busy, readOnly } = useApp();
   const timezone = data.profile.timezone;
+  const currency = data.profile.preferred_currency;
+  const money = (minor: number) => formatCurrency(minor, currency);
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
-  const budgets = useMemo(() => data.budgets.filter((budget) => budget.period_start.slice(0, 7) === month), [data.budgets, month]);
+  const budgets = useMemo(() => data.budgets.filter((budget) => budget.period_start.slice(0, 7) === month && budget.currency === currency), [data.budgets, month, currency]);
   const total = budgets.filter((budget) => budget.category_id === null);
   const categoryBudgets = budgets.filter((budget) => budget.category_id !== null);
 
@@ -50,9 +52,9 @@ export function BudgetsPage() {
     const tone = ratio >= 1 ? 'progress-fill--over' : ratio >= 0.8 ? 'progress-fill--warn' : '';
     return <article className="budget-card" key={budget.id}>
       <div className="budget-card-top"><div className="budget-card-heading"><span className="budget-category-dot" style={{ background: category?.color ?? '#526ebc' }} /><div><h3>{category?.name ?? 'Overall monthly budget'}</h3><p>{category ? 'Category spending limit' : 'All eligible spending'}</p></div></div><div className="row-actions"><button className="icon-button" aria-label={`Edit ${category?.name ?? 'overall'} budget`} onClick={() => openEdit(budget)}><Pencil size={15} /></button><button className="icon-button icon-button--danger" aria-label={`Delete ${category?.name ?? 'overall'} budget`} onClick={() => void remove(budget)}><Trash2 size={15} /></button></div></div>
-      <div className="budget-card-numbers"><div><strong>{formatINR(spent)}</strong><span>spent</span></div><div className="budget-limit"><strong>{formatINR(budget.limit_minor)}</strong><span>monthly limit</span></div></div>
+      <div className="budget-card-numbers"><div><strong>{money(spent)}</strong><span>spent</span></div><div className="budget-limit"><strong>{money(budget.limit_minor)}</strong><span>monthly limit</span></div></div>
       <div className="progress-track progress-track--large"><div className={`progress-fill ${tone}`} style={{ width: `${Math.min(100, ratio * 100)}%` }} /></div>
-      <div className="budget-card-bottom"><span>{Math.round(ratio * 100)}% used</span><span className={ratio >= 1 ? 'tone-negative' : ratio >= 0.8 ? 'tone-warning' : 'tone-positive'}>{ratio >= 1 ? `${formatINR(spent - budget.limit_minor)} over` : `${formatINR(budget.limit_minor - spent)} remaining`}</span></div>
+      <div className="budget-card-bottom"><span>{Math.round(ratio * 100)}% used</span><span className={ratio >= 1 ? 'tone-negative' : ratio >= 0.8 ? 'tone-warning' : 'tone-positive'}>{ratio >= 1 ? `${money(spent - budget.limit_minor)} over` : `${money(budget.limit_minor - spent)} remaining`}</span></div>
       {ratio >= 0.8 && <div className={`budget-alert ${ratio >= 1 ? 'budget-alert--over' : ''}`}><span>{ratio >= 1 ? 'Budget crossed' : 'Approaching your limit'}</span><small>{ratio >= 1 ? 'Your tracked spending has passed this amount.' : 'You have used at least 80% of this month’s budget.'}</small></div>}
     </article>;
   }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { Transaction, TransactionInput, TransactionType } from '../domain/types';
-import { parseINRAmount } from '../lib/format';
+import { currencySymbol, parseINRAmount } from '../lib/format';
 import { useApp } from '../lib/app-context';
 import { saveWalletCard } from '../lib/data';
 import { dateOnly, timestampAtLocalNoon } from '../domain/dates';
@@ -61,7 +61,7 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
   return (
     <form className="form-stack modal-form" onSubmit={(event) => void submit(event)}>
       <div className="form-grid form-grid--two">
-        <label className="field"><span>Amount <i>*</i></span><div className="money-input"><span>₹</span><input autoFocus inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" aria-label="Amount in rupees" /></div></label>
+        <label className="field"><span>Amount <i>*</i></span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input autoFocus inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" aria-label={`Amount in ${data.profile.preferred_currency}`} /></div></label>
         <label className="field"><span>Transaction type <i>*</i></span><select value={type} onChange={(event) => setType(event.target.value as TransactionType)}><option value="expense">Expense</option><option value="income">Income</option><option value="refund">Refund</option><option value="transfer">Transfer</option></select></label>
       </div>
       <div className="form-grid form-grid--two">

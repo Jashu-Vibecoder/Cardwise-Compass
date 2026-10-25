@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, CircleHelp, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import type { CatalogCard, WalletCard } from '../domain/types';
-import { parseINRAmount, parseINRAmountOrZero } from '../lib/format';
+import { currencySymbol, parseINRAmount, parseINRAmountOrZero } from '../lib/format';
 import { saveWalletCard, searchCatalog } from '../lib/data';
 import { useApp } from '../lib/app-context';
 import { useToast } from '../lib/use-toast';
@@ -137,13 +137,13 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
           <label className="field"><span>Card nickname <small>Optional</small></span><input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="e.g. Everyday rewards" /></label>
           <label className="field"><span>Last four digits <small>Optional</small></span><input inputMode="numeric" maxLength={4} value={lastFour} onChange={(event) => setLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" /></label>
         </div>
-        <label className="field"><span>Monthly tracking budget <small>Optional</small></span><div className="money-input"><span>₹</span><input inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="Set a personal spend target" /></div><small>A reminder limit you choose. This is not your bank’s credit limit.</small></label>
+        <label className="field"><span>Monthly tracking budget <small>Optional</small></span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="Set a personal spend target" /></div><small>A reminder limit you choose. This is not your bank’s credit limit.</small></label>
         <div className="card-statement-heading"><strong>Statement tracking</strong><span>Optional values you enter from your latest statement.</span></div>
         <div className="form-grid form-grid--two">
-          <label className="field"><span>Credit limit</span><div className="money-input"><span>₹</span><input inputMode="decimal" value={creditLimit} onChange={(event) => setCreditLimit(event.target.value)} placeholder="e.g. 200000" /></div></label>
-          <label className="field"><span>Current outstanding</span><div className="money-input"><span>₹</span><input inputMode="decimal" value={statementBalance} onChange={(event) => setStatementBalance(event.target.value)} placeholder="e.g. 45000" /></div></label>
+          <label className="field"><span>Credit limit</span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={creditLimit} onChange={(event) => setCreditLimit(event.target.value)} placeholder="e.g. 200000" /></div></label>
+          <label className="field"><span>Current outstanding</span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={statementBalance} onChange={(event) => setStatementBalance(event.target.value)} placeholder="e.g. 45000" /></div></label>
           <label className="field"><span>Payment due date</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
-          <label className="field"><span>Minimum due</span><div className="money-input"><span>₹</span><input inputMode="decimal" value={minimumDue} onChange={(event) => setMinimumDue(event.target.value)} placeholder="e.g. 4500" /></div></label>
+          <label className="field"><span>Minimum due</span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={minimumDue} onChange={(event) => setMinimumDue(event.target.value)} placeholder="e.g. 4500" /></div></label>
           <label className="field"><span>Reward points balance</span><input inputMode="numeric" value={rewardPoints} onChange={(event) => setRewardPoints(event.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="e.g. 12500" /></label>
           <label className="field card-notes-field"><span>Personal notes</span><textarea maxLength={500} rows={2} value={personalNotes} onChange={(event) => setPersonalNotes(event.target.value)} placeholder="A note for yourself about this card" /></label>
         </div>

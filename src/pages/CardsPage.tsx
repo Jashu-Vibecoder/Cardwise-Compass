@@ -5,7 +5,7 @@ import { useApp } from '../lib/app-context';
 import { PageHeader } from '../components/PageHeader';
 import { AddCardDialog } from '../components/AddCardDialog';
 import { useToast } from '../lib/use-toast';
-import { formatINR, shortDate } from '../lib/format';
+import { formatCurrency, shortDate } from '../lib/format';
 import { removeWalletCard } from '../lib/data';
 import { creditPosition } from '../domain/finance';
 import type { WalletCard } from '../domain/types';
@@ -37,7 +37,8 @@ function dueCaption(date: string) {
 }
 
 export function CardsPage() {
-  const { data, refresh, setBusy } = useApp();
+  const { data, refresh, setBusy, readOnly } = useApp();
+  const money = (minor: number) => formatCurrency(minor, data.profile.preferred_currency);
   const { notify } = useToast();
   const [addOpen, setAddOpen] = useState(false);
   const [editing, setEditing] = useState<WalletCard | null>(null);
@@ -59,7 +60,7 @@ export function CardsPage() {
     finally { setBusy(false); }
   }
 
-  return <div className="page-content">
+  return <div className="page-content" data-read-only={readOnly}>
     <PageHeader eyebrow="YOUR WALLET" title="Your credit cards" description="Track statement balances, available credit, and payment dates in one place." action={<button className="button button--primary" onClick={() => setAddOpen(true)}><Plus size={17} /> Add card</button>} />
     <div className="card-vault-note"><ShieldCheck size={18} /><span><strong>Your statement stays yours.</strong> Card limits, balances, due dates, points, and notes are entered by you. Cardwise never asks for your PIN, CVV, full card number, or bank login.</span></div>
     <div className="credit-overview-layout">
@@ -72,7 +73,7 @@ export function CardsPage() {
             <Link className={`credit-card-visual credit-card-visual--${index % 4}`} to={`/cards/${card.id}`} aria-label={`View details for ${card.catalog.card_name}`}>
               <div className="credit-card-visual-top"><span><CreditCard size={18} />{card.catalog.issuer_name}</span><span className="credit-card-status"><BadgeCheck size={13} />Tracked</span></div>
               <div className="credit-card-visual-name"><strong>{card.nickname || card.catalog.card_name}</strong><span>•••• &nbsp;•••• &nbsp;•••• &nbsp;{card.last_four || '••••'}</span></div>
-              <div className="credit-card-visual-metrics"><div><span>Credit limit</span><strong>{card.credit_limit_minor == null ? 'Not entered' : formatINR(card.credit_limit_minor)}</strong></div><div><span>Current outstanding</span><strong>{card.statement_balance_minor == null ? 'Not entered' : formatINR(card.statement_balance_minor)}</strong></div><div><span>Available</span><strong>{available == null ? '—' : formatINR(Math.max(0, available))}</strong></div></div>
+              <div className="credit-card-visual-metrics"><div><span>Credit limit</span><strong>{card.credit_limit_minor == null ? 'Not entered' : money(card.credit_limit_minor)}</strong></div><div><span>Current outstanding</span><strong>{card.statement_balance_minor == null ? 'Not entered' : money(card.statement_balance_minor)}</strong></div><div><span>Available</span><strong>{available == null ? '—' : money(Math.max(0, available))}</strong></div></div>
               <span className="credit-card-orbit credit-card-orbit--one" /><span className="credit-card-orbit credit-card-orbit--two" />
             </Link>
             <div className="credit-card-tile-footer">
@@ -88,9 +89,9 @@ export function CardsPage() {
         <section className="panel credit-position-panel">
           <div className="panel-header"><div className="panel-title-with-icon"><span className="credit-panel-icon"><Gauge size={16} /></span><span>Overall utilization</span></div><span className="credit-panel-caption">Entered statement data</span></div>
           {position.utilizationPercent == null ? <div className="credit-empty-note"><Info size={16} /><span>Add a credit limit and current outstanding to see your combined utilization.</span></div> : <>
-            <div className="credit-position-value"><strong>{position.utilizationPercent.toFixed(1)}%</strong><span>{formatINR(position.outstandingMinor)} used of {formatINR(position.limitMinor)}</span></div>
+            <div className="credit-position-value"><strong>{position.utilizationPercent.toFixed(1)}%</strong><span>{money(position.outstandingMinor)} used of {money(position.limitMinor)}</span></div>
             <div className="utilization-track utilization-track--large"><span style={{ width: `${Math.min(100, Math.max(0, position.utilizationPercent))}%` }} /></div>
-            <div className="credit-position-foot"><span>{position.trackedCards.length} card{position.trackedCards.length === 1 ? '' : 's'} with complete statement details</span><strong>{formatINR(Math.max(0, position.availableMinor))} available</strong></div>
+            <div className="credit-position-foot"><span>{position.trackedCards.length} card{position.trackedCards.length === 1 ? '' : 's'} with complete statement details</span><strong>{money(Math.max(0, position.availableMinor))} available</strong></div>
           </>}
           <div className="credit-score-note"><ShieldCheck size={15} /><span>Cardwise tracks values you enter. It does not retrieve or estimate a credit bureau score.</span></div>
         </section>
@@ -100,7 +101,7 @@ export function CardsPage() {
           {dueCards.length ? <div className="upcoming-due-list">{dueCards.map((card) => <Link className="upcoming-due-item" key={card.id} to={`/cards/${card.id}`}>
             <span className={`upcoming-due-mark upcoming-due-mark--${data.cards.indexOf(card) % 4}`}>{card.catalog.issuer_name.split(' ').map((word) => word[0]).join('').slice(0, 2)}</span>
             <span className="upcoming-due-copy"><strong>{card.catalog.issuer_name}</strong><span>{card.nickname || card.catalog.card_name}</span><small>{shortDate(card.due_date!)}</small></span>
-            <span className="upcoming-due-amount"><strong>{card.minimum_due_minor == null ? '—' : formatINR(card.minimum_due_minor)}</strong><span>{dueCaption(card.due_date!)}</span></span>
+            <span className="upcoming-due-amount"><strong>{card.minimum_due_minor == null ? '—' : money(card.minimum_due_minor)}</strong><span>{dueCaption(card.due_date!)}</span></span>
           </Link>)}</div> : <div className="credit-empty-note"><CalendarDays size={16} /><span>No future payment dates entered yet. Add a date from your latest statement.</span></div>}
         </section>
         <div className="card-vault-footer"><Info size={15} /><span>Outstanding balances and payment dates are not inferred from transactions.</span></div>

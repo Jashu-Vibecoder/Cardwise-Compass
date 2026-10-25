@@ -1,13 +1,27 @@
 import { dateOnly } from '../domain/dates';
 
-export const currencyFormat = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-});
+const currencyFormats = new Map<string, Intl.NumberFormat>();
 
 export function formatINR(amountMinor: number) {
-  return currencyFormat.format(amountMinor / 100);
+  return formatCurrency(amountMinor, 'INR');
+}
+
+export function formatCurrency(amountMinor: number, currency: string) {
+  let formatter = currencyFormats.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 });
+    currencyFormats.set(currency, formatter);
+  }
+  return formatter.format(amountMinor / 100);
+}
+
+export function currencySymbol(currency: string) {
+  try {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+      .formatToParts(0).find((part) => part.type === 'currency')?.value ?? currency;
+  } catch {
+    return currency;
+  }
 }
 
 export function parseINRAmount(value: string) {

@@ -28,6 +28,11 @@ describe('financial calculations', () => {
     });
   });
 
+  it('does not combine transactions in a different currency in monthly totals', () => {
+    const mixed = [...transactions, { ...transactions[0], id: 'foreign-currency', amount_minor: 500_000, currency: 'USD' }];
+    expect(sumTransactions(mixed, '2026-10', 'UTC', 'INR').expensesMinor).toBe(15_000);
+  });
+
   it('uses an honest null comparison when the previous month has no data', () => {
     const summary = monthlySummary(transactions.filter((row) => row.id !== 'next-month'), '2026-10');
     expect(summary.previousExpensesMinor).toBe(0);
@@ -54,6 +59,11 @@ describe('financial calculations', () => {
   it('compares a budget against expenses less refunds only', () => {
     const budget: Budget = { id: 'b', user_id: user, category_id: null, period_start: '2026-10-01', period_end: '2026-10-31', limit_minor: 50_000, currency: 'INR', is_demo: false };
     expect(budgetSpent(transactions, budget)).toBe(15_000);
+  });
+
+  it('keeps budget calculations in the budget currency', () => {
+    const budget: Budget = { id: 'b-usd', user_id: user, category_id: null, period_start: '2026-10-01', period_end: '2026-10-31', limit_minor: 50_000, currency: 'USD', is_demo: false };
+    expect(budgetSpent(transactions, budget)).toBe(0);
   });
 
   it('calculates rewards in integer paise and respects a remaining cap', () => {

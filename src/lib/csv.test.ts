@@ -21,6 +21,13 @@ describe('transaction CSV', () => {
     expect(preview[0].input?.amount_minor).toBe(125_050);
   });
 
+  it('keeps imported amounts in the profile currency and rejects another declared currency', () => {
+    const numeric = previewTransactionCsv('date,amount,currency,merchant\n2026-10-05,125.50,USD,Market', categories, [], 'UTC', 'USD');
+    expect(numeric[0].input).toMatchObject({ amount_minor: 12_550, currency: 'USD' });
+    const mismatched = previewTransactionCsv('date,amount,currency,merchant\n2026-10-05,125.50,INR,Market', categories, [], 'UTC', 'USD');
+    expect(mismatched[0].errors).toContain('Currency INR does not match your profile currency (USD).');
+  });
+
   it('rejects impossible calendar dates instead of normalizing them', () => {
     const preview = previewTransactionCsv('date,amount,merchant\n2026-02-31,10.00,Market', categories, []);
     expect(preview[0].errors).toContain('Date must use a real YYYY-MM-DD calendar date.');

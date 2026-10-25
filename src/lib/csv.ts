@@ -64,18 +64,21 @@ function isRealDate(value: string) {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 }
 
-function parseCsvAmount(value: string, allowNegative: boolean) {
+function parseCsvAmount(value: string, allowNegative: boolean, currency: string) {
+  if (currency !== 'INR' && /₹|\bINR\b|\bRs\.?/i.test(value)) return null;
   const normalized = value.trim().replace(/₹|\bINR\b|\bRs\.?\s*/gi, '').replace(/[\s\u00a0]/g, '');
   const negative = normalized.startsWith('-');
   if (negative && !allowNegative) return null;
   return parseINRAmount(negative ? normalized.slice(1) : normalized);
 }
 
-function rowInput(values: Record<string, string>, categories: Category[], timezone: string): { input: TransactionInput | null; errors: string[] } {
+function rowInput(values: Record<string, string>, categories: Category[], timezone: string, currency: string): { input: TransactionInput | null; errors: string[] } {
   const errors: string[] = [];
   const amount = values.amount?.trim() ?? '';
-  const amountMinor = parseCsvAmount(amount, !Object.hasOwn(values, 'type'));
-  if (amountMinor === null) errors.push('Amount must be a positive INR amount with up to two decimals.');
+  const amountMinor = parseCsvAmount(amount, !Object.hasOwn(values, 'type'), currency);
+  if (amountMinor === null) errors.push(`Amount must be a positive ${currency} amount with up to two decimals.`);
+  const rowCurrency = values.currency?.trim().toUpperCase();
+  if (rowCurrency && rowCurrency !== currency) errors.push(`Currency ${rowCurrency} does not match your profile currency (${currency}).`);
   const date = values.date?.trim() ?? '';
   if (!isRealDate(date)) errors.push('Date must use a real YYYY-MM-DD calendar date.');
   const merchant = (values.merchant || values.description || '').trim();
@@ -93,7 +96,7 @@ function rowInput(values: Record<string, string>, categories: Category[], timezo
       card_id: null,
       category_id: (category ?? uncategorized)?.id ?? null,
       amount_minor: amountMinor,
-      currency: 'INR',
+      currency,
       transaction_type: typeValue as TransactionType,
       merchant,
       description: values.description?.trim() || null,
@@ -115,7 +118,7 @@ function duplicateKey(input: TransactionInput, timezone: string) {
   ]);
 }
 
-export function previewTransactionCsv(text: string, categories: Category[], existing: Transaction[], timezone = 'UTC'): CsvPreviewRow[] {
+export function previewTransactionCsv(text: string, categories: Category[], existing: Transaction[], timezone = 'UTC', currency = 'INR'): CsvPreviewRow[] {
   const rows = parseCsv(text);
   if (rows.length === 0) return [];
   const headers = rows[0].map((value) => value.trim().toLowerCase());
@@ -129,7 +132,7 @@ export function previewTransactionCsv(text: string, categories: Category[], exis
   }
   return rows.slice(1).map((cells, index) => {
     const values = Object.fromEntries(headers.map((header, column) => [header, cells[column] ?? '']));
-    const parsed = rowInput(values, categories, timezone);
+    const parsed = rowInput(values, categories, timezone, currency);
     if (!parsed.input) return { rowNumber: index + 2, input: null, errors: parsed.errors, duplicateOf: null };
     const key = duplicateKey(parsed.input, timezone);
     const duplicateOf = seen.get(key) ?? null;

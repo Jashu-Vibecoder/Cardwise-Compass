@@ -307,6 +307,17 @@ export async function removeWalletCard(id: string) {
 }
 
 export async function saveTransaction(input: TransactionInput, id?: string) {
+  let expectedCurrency: string | undefined;
+  if (isLocalWorkspace()) expectedCurrency = readLocalWorkspace().profile.preferred_currency;
+  else {
+    const profile = await requireSupabase().from('profiles').select('preferred_currency').single();
+    assertOk(profile.error);
+    if (!profile.data) throw new Error('Your profile currency could not be loaded.');
+    expectedCurrency = profile.data.preferred_currency;
+  }
+  if (input.currency !== expectedCurrency) {
+    throw new Error('Transaction currency must match your profile currency.');
+  }
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
     if (id) data.transactions = data.transactions.map((row) => row.id === id ? { ...row, ...input } : row);
@@ -326,11 +337,16 @@ export async function saveTransactions(inputs: TransactionInput[]) {
   if (inputs.length === 0) return { imported: 0, failed: 0 };
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
+    if (inputs.some((input) => input.currency !== data.profile.preferred_currency)) throw new Error('Imported currency must match your profile currency.');
     data.transactions.unshift(...inputs.map((input) => ({ ...input, id: makeId(), user_id: data.profile.id })));
     writeLocalWorkspace(data);
     return { imported: inputs.length, failed: 0 };
   }
   const userId = await authenticatedUserId();
+  const profile = await requireSupabase().from('profiles').select('preferred_currency').single();
+  assertOk(profile.error);
+  if (!profile.data) throw new Error('Your profile currency could not be loaded.');
+  if (inputs.some((input) => input.currency !== profile.data.preferred_currency)) throw new Error('Imported currency must match your profile currency.');
   let imported = 0;
   let failed = 0;
   for (let offset = 0; offset < inputs.length; offset += 100) {
@@ -356,6 +372,7 @@ export async function removeTransaction(id: string) {
 export async function saveBudget(input: BudgetInput, id?: string) {
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
+    if (input.currency !== data.profile.preferred_currency) throw new Error('Budget currency must match your profile currency.');
     const existing = data.budgets.find((row) => row.id === id || (!id && row.period_start === input.period_start && row.category_id === input.category_id));
     if (existing) data.budgets = data.budgets.map((row) => row.id === existing.id ? { ...row, ...input } : row);
     else data.budgets.unshift({ ...input, id: makeId(), user_id: data.profile.id, is_demo: true });
@@ -363,6 +380,10 @@ export async function saveBudget(input: BudgetInput, id?: string) {
     return;
   }
   const userId = await authenticatedUserId();
+  const profile = await requireSupabase().from('profiles').select('preferred_currency').single();
+  assertOk(profile.error);
+  if (!profile.data) throw new Error('Your profile currency could not be loaded.');
+  if (input.currency !== profile.data.preferred_currency) throw new Error('Budget currency must match your profile currency.');
   const payload = { ...input, user_id: userId };
   const client = requireSupabase();
   if (id) {

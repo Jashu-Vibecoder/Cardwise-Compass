@@ -38,8 +38,8 @@ export function monthKey(date: string, timezone = 'UTC') {
   return dateOnly(date, timezone).slice(0, 7);
 }
 
-export function sumTransactions(transactions: Transaction[], month: string, timezone = 'UTC') {
-  const rows = transactions.filter((item) => monthKey(item.occurred_at, timezone) === month);
+export function sumTransactions(transactions: Transaction[], month: string, timezone = 'UTC', currency?: string) {
+  const rows = transactions.filter((item) => monthKey(item.occurred_at, timezone) === month && (!currency || item.currency === currency));
   const grossExpensesMinor = rows
     .filter((item) => item.transaction_type === 'expense')
     .reduce((sum, item) => sum + item.amount_minor, 0);
@@ -54,11 +54,11 @@ export function sumTransactions(transactions: Transaction[], month: string, time
   return { expensesMinor, incomeMinor, refundsMinor, netMinor };
 }
 
-export function monthlySummary(transactions: Transaction[], month: string, timezone = 'UTC'): MonthSummary {
+export function monthlySummary(transactions: Transaction[], month: string, timezone = 'UTC', currency?: string): MonthSummary {
   const [year, monthNumber] = month.split('-').map(Number);
   const previous = new Date(Date.UTC(year, monthNumber - 2, 1)).toISOString().slice(0, 7);
-  const current = sumTransactions(transactions, month, timezone);
-  const previousExpensesMinor = sumTransactions(transactions, previous, timezone).expensesMinor;
+  const current = sumTransactions(transactions, month, timezone, currency);
+  const previousExpensesMinor = sumTransactions(transactions, previous, timezone, currency).expensesMinor;
   const expenseChangeMinor = current.expensesMinor - previousExpensesMinor;
   const expenseChangePercent = previousExpensesMinor === 0
     ? null
@@ -73,14 +73,14 @@ export function budgetSpent(transactions: Transaction[], budget: Budget, timezon
       const date = dateOnly(item.occurred_at, timezone);
       const inRange = date >= budget.period_start && date <= budget.period_end;
       const categoryMatches = budget.category_id === null || item.category_id === budget.category_id;
-      return inRange && categoryMatches && (item.transaction_type === 'expense' || item.transaction_type === 'refund');
+      return inRange && item.currency === budget.currency && categoryMatches && (item.transaction_type === 'expense' || item.transaction_type === 'refund');
     })
     .reduce((sum, item) => sum + (item.transaction_type === 'refund' ? -item.amount_minor : item.amount_minor), 0);
 }
 
-export function categoryTotals(transactions: Transaction[], month: string, categories: Category[], timezone = 'UTC') {
-  const rows = transactions.filter((item) => monthKey(item.occurred_at, timezone) === month);
-  const total = sumTransactions(rows, month, timezone).expensesMinor;
+export function categoryTotals(transactions: Transaction[], month: string, categories: Category[], timezone = 'UTC', currency?: string) {
+  const rows = transactions.filter((item) => monthKey(item.occurred_at, timezone) === month && (!currency || item.currency === currency));
+  const total = sumTransactions(rows, month, timezone, currency).expensesMinor;
   const categoryById = new Map(categories.map((category) => [category.id, category]));
   const currentFor = (categoryId: string | null) => rows
     .filter((item) => item.category_id === categoryId && (item.transaction_type === 'expense' || item.transaction_type === 'refund'))
@@ -99,11 +99,11 @@ export function categoryTotals(transactions: Transaction[], month: string, categ
   return result.filter((item) => item.currentMinor > 0).sort((a, b) => b.currentMinor - a.currentMinor);
 }
 
-export function categoryComparison(transactions: Transaction[], month: string, categories: Category[], timezone = 'UTC') {
+export function categoryComparison(transactions: Transaction[], month: string, categories: Category[], timezone = 'UTC', currency?: string) {
   const [year, monthNumber] = month.split('-').map(Number);
   const previous = new Date(Date.UTC(year, monthNumber - 2, 1)).toISOString().slice(0, 7);
-  const thisMonth = categoryTotals(transactions, month, categories, timezone);
-  const lastMonth = categoryTotals(transactions, previous, categories, timezone);
+  const thisMonth = categoryTotals(transactions, month, categories, timezone, currency);
+  const lastMonth = categoryTotals(transactions, previous, categories, timezone, currency);
   const valueFor = (rows: ReturnType<typeof categoryTotals>, id: string) => rows.find((row) => row.id === id)?.currentMinor ?? 0;
   return categories
     .map((category) => ({
@@ -121,7 +121,7 @@ export function calculateRewardMinor(amountMinor: number, rateBasisPoints: numbe
   return remainingCapMinor == null ? raw : Math.max(0, Math.min(raw, remainingCapMinor));
 }
 
-export function calculateCardRewards(transactions: Transaction[], cards: WalletCard[], rules: RewardRule[], month: string, categories: Category[] = [], timezone = 'UTC') {
+export function calculateCardRewards(transactions: Transaction[], cards: WalletCard[], rules: RewardRule[], month: string, categories: Category[] = [], timezone = 'UTC', currency?: string) {
   const categorySlugs = new Map(categories.map((category) => [category.id, category.slug]));
   return cards.map((card) => {
     const cardRules = rules.filter((rule) => rule.catalog_card_id === card.catalog_card_id && rule.verified_at && rule.cap_period !== 'statement_cycle');
@@ -130,6 +130,7 @@ export function calculateCardRewards(transactions: Transaction[], cards: WalletC
         const date = dateOnly(transaction.occurred_at, timezone);
         return transaction.card_id === card.id
           && transaction.transaction_type === 'expense'
+          && (!currency || transaction.currency === currency)
           && monthKey(date, timezone) === month
           && date >= rule.valid_from
           && (!rule.valid_until || date <= rule.valid_until)
@@ -151,8 +152,8 @@ export function calculateCardRewards(transactions: Transaction[], cards: WalletC
   });
 }
 
-export function totalByType(transactions: Transaction[], month: string, type: TransactionType, timezone = 'UTC') {
+export function totalByType(transactions: Transaction[], month: string, type: TransactionType, timezone = 'UTC', currency?: string) {
   return transactions
-    .filter((item) => monthKey(item.occurred_at, timezone) === month && item.transaction_type === type)
+    .filter((item) => monthKey(item.occurred_at, timezone) === month && item.transaction_type === type && (!currency || item.currency === currency))
     .reduce((sum, item) => sum + item.amount_minor, 0);
 }
