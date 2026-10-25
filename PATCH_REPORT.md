@@ -1,6 +1,6 @@
 # Cardwise Compass bug audit patch report
 
-Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 2026). Branch: `fix/bug-audit-oct-2026`. The branch is pushed to GitHub and its Vercel preview is READY at `cardwise-compass-git-fix-bug-audit-oct-2026-lex-eee5.vercel.app`. Production was not deployed. No live Supabase database was queried or modified.
+Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 2026). Branch `fix/bug-audit-oct-2026` was merged into `main` at `3f1a2dc` and pushed to GitHub. Vercel production deployment is READY at `https://cardwise-compass.vercel.app`; `/` and `/transactions` both returned HTTP 200. No live Supabase database was queried or modified; database-dependent checks remain pending.
 
 ## Issue summary
 
@@ -237,7 +237,7 @@ found 0 vulnerabilities
 Exit code: 0
 ```
 
-The browser tool exposed no browser window. A local Vite server started, but the in-app browser was unavailable, so visual/user-journey checks were not represented as completed. A read-only request to the public Vercel preview returned HTTP 200 for both `/` and `/transactions`. The preview deployment is READY, but this report does not claim end-to-end production verification.
+The browser tool exposed no browser window. A local Vite server started, but the in-app browser was unavailable, so visual/user-journey checks were not represented as completed. Read-only requests to the public Vercel production URL returned HTTP 200 for both `/` and `/transactions`. The production build is READY, but this report does not claim end-to-end Supabase verification.
 
 ## Migration notes
 
@@ -258,7 +258,7 @@ No migration was applied to a live database. Required follow-up: apply and verif
 - [ ] Exercise Supabase sign-in/sign-up/session restore, RLS isolation, demo `?demo=1` isolation, and no cross-account reads/writes.
 - [ ] Add, edit, and delete an account with a custom category budget; verify Edge Function CORS, stable response, and client-visible error.
 - [ ] Test CSV import in staging for semicolon/tab, exact duplicates, partial batch failure, and refreshed totals; test CSV exports in Excel/LibreOffice.
-- [x] Request Vercel `/transactions` directly; preview returned HTTP 200 through the SPA rewrite. Visual refresh check remains pending.
+- [x] Request Vercel `/transactions` directly; production returned HTTP 200 through the SPA rewrite. Visual refresh check remains pending.
 - [ ] Test timezone display in a non-IST browser and timezone-boundary transaction date entry.
 - [ ] Use a browser for card search/add with multiple copies, reward calculation and caps, month navigation, transaction totals, modal keyboard behavior, and responsive/mobile layout.
 - [ ] Complete the forgot-password redirect allowlist and recovery-email flow against the intended Supabase project.
@@ -274,4 +274,4 @@ No migration was applied to a live database. Required follow-up: apply and verif
 
 ## Commit information
 
-All issue fix commits are pushed on `origin/fix/bug-audit-oct-2026`. Follow-up commits exist for H1, H2, H4, H5, M4, M5, and M8. The user-requested brand image and public-demo/recovery integration were committed in `aef8bc6`; the credential file remains untracked and was not committed. Vercel preview `cardwise-compass-git-fix-bug-audit-oct-2026-lex-eee5.vercel.app` is READY; no production deployment was made.
+All issue fix commits are pushed on `origin/fix/bug-audit-oct-2026` and merged into `origin/main`. Follow-up commits exist for H1, H2, H4, H5, M4, M5, and M8. The user-requested brand image and public-demo/recovery integration were committed in `aef8bc6`; the credential file remains untracked and was not committed. Production commit `3f1a2dc` is READY on Vercel; Supabase migrations remain unapplied.

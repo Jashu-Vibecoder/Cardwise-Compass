@@ -25,10 +25,11 @@
 | Production build | Passed; largest emitted route chunk is about 401 kB |
 | Dependency audit | Passed: 0 vulnerabilities |
 | Desktop and mobile browser review | Not completed; no browser window is exposed in this session |
+| Vercel production deployment | Ready; homepage and `/transactions` returned HTTP 200 |
 
 ## Remote steps not completed
 
 - The configured Supabase project has not been inspected or changed. Apply and validate the migrations only after reviewing the existing project schema and migration plan.
 - The CSV catalogue import and two Supabase demo accounts have not been run. They require the intended project's service role key and distinct demo email addresses.
 - Supabase RLS behavior, sign-up/sign-in, edge-function deployment, account deletion, and remote data isolation have not been tested against the project.
-- No production hosting deployment has been created from this workspace.
+- The Vercel frontend is deployed, but the follow-up Supabase migrations and live database integration checks have not been completed.
