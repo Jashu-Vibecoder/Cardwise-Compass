@@ -15,6 +15,7 @@ import type {
 import { isPublicDemoLocation, PREVIEW_STORAGE_KEY, PUBLIC_DEMO_STORAGE_KEY, usesLocalWorkspace, workspaceStorageKey } from '../domain/workspace-mode';
 import { fetchAllPages } from '../domain/pagination';
 import { searchCatalogRecords } from '../domain/catalog-search';
+import { readFunctionErrorMessage } from './function-errors';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -440,7 +441,10 @@ export async function deleteMyAccount() {
   if (isLocalWorkspace()) throw new Error('Account deletion is unavailable in the local demo workspace.');
   const client = requireSupabase();
   const { error } = await client.functions.invoke('delete-account', { method: 'POST', body: {} });
-  assertOk(error);
+  if (error) {
+    const serverMessage = await readFunctionErrorMessage(error);
+    throw new Error(serverMessage ?? error.message ?? 'Your account could not be deleted.');
+  }
   const { error: signOutError } = await client.auth.signOut({ scope: 'local' });
   assertOk(signOutError);
 }
