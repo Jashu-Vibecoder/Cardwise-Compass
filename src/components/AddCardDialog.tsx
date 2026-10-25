@@ -82,7 +82,7 @@ export function AddCardDialog({ onClose, initialCard, initialCatalogCard, onSave
     if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex((index) => Math.min(results.length - 1, index + 1)); }
     if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex((index) => Math.max(0, index - 1)); }
     if (event.key === 'Enter' && activeIndex >= 0 && results[activeIndex]) { event.preventDefault(); choose(results[activeIndex]); }
-    if (event.key === 'Escape') { setResults([]); setActiveIndex(-1); }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setResults([]); setActiveIndex(-1); }
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
