@@ -1,6 +1,6 @@
 # Cardwise Compass bug audit patch report
 
-Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 2026). Branch: `fix/bug-audit-oct-2026`. Work was not pushed or deployed. No live Supabase database was queried or modified.
+Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 2026). Branch: `fix/bug-audit-oct-2026`. The branch is pushed to GitHub and its Vercel preview is READY at `cardwise-compass-git-fix-bug-audit-oct-2026-lex-eee5.vercel.app`. Production was not deployed. No live Supabase database was queried or modified.
 
 ## Issue summary
 
@@ -237,7 +237,7 @@ found 0 vulnerabilities
 Exit code: 0
 ```
 
-The browser tool exposed no browser window. A local Vite server started, but the in-app browser was unavailable, so visual/user-journey checks were not represented as completed. The report does not claim end-to-end production verification.
+The browser tool exposed no browser window. A local Vite server started, but the in-app browser was unavailable, so visual/user-journey checks were not represented as completed. The preview deployment is READY, but this report does not claim end-to-end production verification.
 
 ## Migration notes
 
@@ -274,4 +274,4 @@ No migration was applied to a live database. Required follow-up: apply and verif
 
 ## Commit information
 
-All issue fix commits are on local branch `fix/bug-audit-oct-2026`. Follow-up commits exist for H1, H2, H4, H5, M4, M5, and M8. The user-requested brand image and public-demo/recovery integration were committed in `aef8bc6`; the credential file remains untracked and was not committed.
+All issue fix commits are pushed on `origin/fix/bug-audit-oct-2026`. Follow-up commits exist for H1, H2, H4, H5, M4, M5, and M8. The user-requested brand image and public-demo/recovery integration were committed in `aef8bc6`; the credential file remains untracked and was not committed. Vercel preview `cardwise-compass-git-fix-bug-audit-oct-2026-lex-eee5.vercel.app` is READY; no production deployment was made.
