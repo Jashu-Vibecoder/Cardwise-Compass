@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { FileUp, ShieldCheck, Upload } from 'lucide-react';
 import type { CsvPreviewRow } from '../lib/csv';
-import { previewTransactionCsv } from '../lib/csv';
+import { detectCsvDelimiter, previewTransactionCsv } from '../lib/csv';
 import type { TransactionInput } from '../domain/types';
 import { formatCurrency } from '../lib/format';
 import { useApp } from '../lib/app-context';
@@ -14,6 +14,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
   const fileRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<CsvPreviewRow[]>([]);
   const [fileName, setFileName] = useState('');
+  const [delimiter, setDelimiter] = useState(',');
   const [error, setError] = useState('');
   const [includeDuplicates, setIncludeDuplicates] = useState(false);
 
@@ -23,6 +24,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
     setFileName(file.name);
     try {
       const text = await file.text();
+      setDelimiter(detectCsvDelimiter(text));
       const preview = previewTransactionCsv(text, data.categories, data.transactions, data.profile.timezone, data.profile.preferred_currency);
       setRows(preview);
       if (preview.length === 0) setError('This CSV has a header row but no transactions.');
@@ -44,6 +46,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
         </button>
         <input ref={fileRef} type="file" accept=".csv,text/csv" hidden onChange={(event) => void chooseFile(event.target.files?.[0])} />
         <div className="csv-privacy-note"><ShieldCheck size={15} />Rows are validated in your browser. No raw file is retained.</div>
+        {fileName && <p className="csv-note">Detected delimiter: {delimiter === '\t' ? 'tab' : delimiter === ';' ? 'semicolon' : 'comma'}.</p>}
         {error && <div className="inline-error" role="alert">{error}</div>}
         {rows.length > 0 && <>
           <div className="csv-summary"><span><strong>{validRows.length}</strong> ready</span><span className="tone-warning"><strong>{duplicateCount}</strong> possible duplicates</span><span className="tone-negative"><strong>{invalidCount}</strong> need fixing</span></div>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { exportTransactionsCsv, parseCsv, previewTransactionCsv } from './csv';
+import { detectCsvDelimiter, exportTransactionsCsv, parseCsv, previewTransactionCsv } from './csv';
 import type { Category, Transaction, WorkspaceData } from '../domain/types';
 
 const categories: Category[] = [
@@ -8,6 +8,12 @@ const categories: Category[] = [
 ];
 
 describe('transaction CSV', () => {
+  it('reports comma, semicolon, and tab delimiters from the header row', () => {
+    expect(detectCsvDelimiter('date,amount,merchant\n')).toBe(',');
+    expect(detectCsvDelimiter('date;amount;merchant\n')).toBe(';');
+    expect(detectCsvDelimiter('date\tamount\tmerchant\n')).toBe('\t');
+  });
+
   it('parses quoted commas and escaped quotes', () => {
     expect(parseCsv('merchant,description\n"Cafe, North","He said ""hello"""')).toEqual([
       ['merchant', 'description'], ['Cafe, North', 'He said "hello"'],

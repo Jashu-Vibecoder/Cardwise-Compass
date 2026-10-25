@@ -1,6 +1,7 @@
 import type { Category, Transaction, TransactionInput, TransactionType, WorkspaceData } from '../domain/types';
 import { parseINRAmount } from './format';
 import { dateOnly, timestampAtLocalNoon } from '../domain/dates';
+import { transactionDedupeKey } from '../domain/transaction-dedupe';
 
 export interface CsvPreviewRow {
   rowNumber: number;
@@ -9,7 +10,7 @@ export interface CsvPreviewRow {
   duplicateOf: string | null;
 }
 
-function detectDelimiter(text: string) {
+export function detectCsvDelimiter(text: string) {
   const counts = new Map([[',', 0], [';', 0], ['\t', 0]]);
   let quoted = false;
   for (let index = 0; index < text.length; index += 1) {
@@ -22,7 +23,7 @@ function detectDelimiter(text: string) {
   return [...counts].sort((left, right) => right[1] - left[1])[0][0];
 }
 
-export function parseCsv(text: string, delimiter = detectDelimiter(text)): string[][] {
+export function parseCsv(text: string, delimiter = detectCsvDelimiter(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
@@ -111,11 +112,7 @@ function rowInput(values: Record<string, string>, categories: Category[], timezo
 }
 
 function duplicateKey(input: TransactionInput, timezone: string) {
-  return JSON.stringify([
-    dateOnly(input.occurred_at, timezone), input.amount_minor, input.currency.toUpperCase(), input.transaction_type,
-    input.merchant.trim().toLocaleLowerCase(), input.description?.trim().toLocaleLowerCase() ?? '',
-    input.category_id, input.card_id, input.recurring, input.spend_channel,
-  ]);
+  return transactionDedupeKey(input, timezone);
 }
 
 export function previewTransactionCsv(text: string, categories: Category[], existing: Transaction[], timezone = 'UTC', currency = 'INR'): CsvPreviewRow[] {

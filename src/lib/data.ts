@@ -19,6 +19,7 @@ import { readFunctionErrorMessage } from './function-errors';
 import { findWalletCardToUpdate } from '../domain/wallet-cards';
 import { hasBudgetConflict } from '../domain/budgets';
 import { clearRemovedCardLinks } from '../domain/wallet-cards-links';
+import { transactionDedupeKey } from '../domain/transaction-dedupe';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -344,19 +345,19 @@ export async function saveTransactions(inputs: TransactionInput[]) {
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
     if (inputs.some((input) => input.currency !== data.profile.preferred_currency)) throw new Error('Imported currency must match your profile currency.');
-    data.transactions.unshift(...inputs.map((input) => ({ ...input, id: makeId(), user_id: data.profile.id })));
+    data.transactions.unshift(...inputs.map((input) => ({ ...input, dedupe_key: transactionDedupeKey(input, data.profile.timezone), id: makeId(), user_id: data.profile.id })));
     writeLocalWorkspace(data);
     return { imported: inputs.length, failed: 0 };
   }
   const userId = await authenticatedUserId();
-  const profile = await requireSupabase().from('profiles').select('preferred_currency').single();
+  const profile = await requireSupabase().from('profiles').select('preferred_currency,timezone').single();
   assertOk(profile.error);
   if (!profile.data) throw new Error('Your profile currency could not be loaded.');
   if (inputs.some((input) => input.currency !== profile.data.preferred_currency)) throw new Error('Imported currency must match your profile currency.');
   let imported = 0;
   let failed = 0;
   for (let offset = 0; offset < inputs.length; offset += 100) {
-    const batch = inputs.slice(offset, offset + 100).map((input) => ({ ...input, user_id: userId }));
+    const batch = inputs.slice(offset, offset + 100).map((input) => ({ ...input, dedupe_key: transactionDedupeKey(input, profile.data.timezone), user_id: userId }));
     const { error } = await requireSupabase().from('transactions').insert(batch);
     if (error) failed += batch.length;
     else imported += batch.length;

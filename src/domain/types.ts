@@ -91,6 +91,7 @@ export interface Transaction {
   merchant: string;
   description: string | null;
   occurred_at: string;
+  dedupe_key?: string | null;
   source: TransactionSource;
   is_demo: boolean;
   recurring: boolean;
