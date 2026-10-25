@@ -67,7 +67,7 @@ export function CardsPage() {
       <section className="credit-card-grid" aria-label="Saved credit cards">
         {data.cards.map((card, index) => {
           const hasUsage = card.credit_limit_minor != null && card.credit_limit_minor > 0 && card.statement_balance_minor != null;
-          const utilization = hasUsage ? Math.round((card.statement_balance_minor! / card.credit_limit_minor!) * 100) : null;
+          const utilization = hasUsage ? (card.statement_balance_minor! / card.credit_limit_minor!) * 100 : null;
           const available = hasUsage ? card.credit_limit_minor! - card.statement_balance_minor! : null;
           return <article className="credit-card-tile" key={card.id}>
             <Link className={`credit-card-visual credit-card-visual--${index % 4}`} to={`/cards/${card.id}`} aria-label={`View details for ${card.catalog.card_name}`}>
@@ -77,7 +77,7 @@ export function CardsPage() {
               <span className="credit-card-orbit credit-card-orbit--one" /><span className="credit-card-orbit credit-card-orbit--two" />
             </Link>
             <div className="credit-card-tile-footer">
-              <div className="credit-card-utilization"><div><span>Credit utilization</span><strong>{utilization == null ? 'Add statement details' : `${utilization}%`}</strong></div><div className="utilization-track"><span style={{ width: `${Math.min(100, Math.max(0, utilization ?? 0))}%` }} /></div></div>
+              <div className="credit-card-utilization"><div><span>Credit utilization</span><strong>{utilization == null ? 'Add statement details' : `${utilization.toFixed(1)}%`}</strong></div><div className="utilization-track"><span style={{ width: `${Math.min(100, Math.max(0, utilization ?? 0))}%` }} /></div></div>
               <div className="credit-card-tile-actions"><span className="verify-pill verify-pill--good"><BadgeCheck size={13} />{identityStatus(card)}</span><div className="row-actions"><button className="icon-button" onClick={() => setEditing(card)} aria-label={`Edit ${card.catalog.card_name}`} title="Edit statement details"><CreditCard size={15} /></button><button className="icon-button icon-button--danger" onClick={() => void remove(card)} aria-label={`Remove ${card.catalog.card_name}`} title="Remove card"><Trash2 size={15} /></button></div></div>
             </div>
           </article>;
