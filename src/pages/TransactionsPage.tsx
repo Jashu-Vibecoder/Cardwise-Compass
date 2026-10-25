@@ -11,6 +11,7 @@ import { exportTransactionsCsv } from '../lib/csv';
 import { removeTransaction, saveTransaction, saveTransactions } from '../lib/data';
 import type { Transaction, TransactionInput, TransactionType } from '../domain/types';
 import { monthKey } from '../domain/finance';
+import { transactionInSelectedScope } from '../domain/transaction-filter';
 
 const types: Array<{ value: 'all' | TransactionType; label: string }> = [
   { value: 'all', label: 'All activity' }, { value: 'expense', label: 'Expenses' }, { value: 'income', label: 'Income' }, { value: 'refund', label: 'Refunds' }, { value: 'transfer', label: 'Transfers' },
@@ -29,17 +30,18 @@ export function TransactionsPage() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState<'all' | TransactionType>('all');
   const [categoryId, setCategoryId] = useState('all');
+  const [allMonths, setAllMonths] = useState(false);
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
 
   const filtered = useMemo(() => [...data.transactions]
     .filter((row) => row.currency === currency)
-    .filter((row) => monthKey(row.occurred_at, timezone) === month)
+    .filter((row) => transactionInSelectedScope(monthKey(row.occurred_at, timezone), month, allMonths))
     .filter((row) => type === 'all' || row.transaction_type === type)
     .filter((row) => categoryId === 'all' || row.category_id === categoryId)
     .filter((row) => !search || `${row.merchant} ${row.description ?? ''}`.toLowerCase().includes(search.trim().toLowerCase()))
-    .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)), [data.transactions, month, type, categoryId, search, timezone, currency]);
+    .sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)), [data.transactions, month, type, categoryId, search, timezone, currency, allMonths]);
 
   async function save(value: TransactionInput) {
     setBusy(true);
@@ -98,6 +100,7 @@ export function TransactionsPage() {
       <section className="panel transaction-panel">
         <div className="transaction-toolbar">
           <div className="search-field"><Search size={17} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search merchants or notes" aria-label="Search transactions" /></div>
+          <label className="check-field transaction-all-months"><input type="checkbox" checked={allMonths} onChange={(event) => setAllMonths(event.target.checked)} /><span>Search all months</span></label>
           <label className="filter-select"><span className="sr-only">Transaction type</span><select value={type} onChange={(event) => setType(event.target.value as typeof type)}>{types.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><ChevronDown size={14} /></label>
           <label className="filter-select"><span className="sr-only">Category</span><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="all">All categories</option>{data.categories.map((category) => <option value={category.id} key={category.id}>{category.name}</option>)}</select><ChevronDown size={14} /></label>
           <span className="transaction-month"><CalendarDays size={15} />{filtered.length} records</span>
@@ -110,8 +113,8 @@ export function TransactionsPage() {
             const sign = row.transaction_type === 'income' || row.transaction_type === 'refund' ? '+' : row.transaction_type === 'transfer' ? '' : '−';
             return <tr key={row.id}><td><div className="table-merchant"><div className="transaction-icon" style={{ '--category-color': category?.color ?? '#9aa5b5' } as React.CSSProperties}><span>{category?.name.slice(0, 1) ?? '·'}</span></div><div><strong>{row.merchant}</strong><span>{row.description || row.transaction_type}</span></div></div></td><td><span className="category-chip"><i style={{ background: category?.color ?? '#9aa5b5' }} />{category?.name ?? 'Uncategorized'}</span></td><td>{card ? <span className="table-card-name">{card.catalog.card_name}</span> : <span className="muted-dash">—</span>}</td><td>{shortDate(row.occurred_at, timezone)}</td><td><span className={`source-badge ${row.source === 'demo' ? 'source-badge--demo' : ''}`}>{sourceLabel(row.source)}</span></td><td className={`align-right transaction-value ${tone}`}>{sign}{money(row.amount_minor)}</td><td><div className="row-actions"><button className="icon-button" aria-label={`Edit ${row.merchant}`} title="Edit transaction" onClick={() => openEdit(row)}><Pencil size={15} /></button><button className="icon-button icon-button--danger" aria-label={`Delete ${row.merchant}`} title="Delete transaction" onClick={() => void remove(row)}><Trash2 size={15} /></button></div></td></tr>;
           })}
-        </tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><ArrowUpFromLine size={24} /></div><h3>{data.transactions.some((row) => monthKey(row.occurred_at, timezone) === month) ? 'No transactions match these filters' : 'No transactions this month'}</h3><p>{data.transactions.some((row) => monthKey(row.occurred_at, timezone) === month) ? 'Try another search or clear a filter.' : 'Add an expense, income, refund, or transfer to get started.'}</p>{!data.transactions.some((row) => monthKey(row.occurred_at, timezone) === month) && <button className="button button--primary" onClick={openCreate}><Plus size={16} /> Add transaction</button>}</div>}
-        {filtered.length > 0 && <div className="table-footer"><span>Showing {filtered.length} of {data.transactions.filter((row) => monthKey(row.occurred_at, timezone) === month).length} records for the selected month</span><button className="text-link" onClick={exportCsv}>Export filtered CSV <ArrowUpFromLine size={14} /></button></div>}
+        </tbody></table></div> : <div className="empty-state"><div className="empty-illustration"><ArrowUpFromLine size={24} /></div><h3>{allMonths ? 'No transactions match these filters' : data.transactions.some((row) => row.currency === currency && monthKey(row.occurred_at, timezone) === month) ? 'No transactions match these filters' : 'No transactions this month'}</h3><p>{allMonths || data.transactions.some((row) => row.currency === currency && monthKey(row.occurred_at, timezone) === month) ? 'Try another search or clear a filter.' : 'Add an expense, income, refund, or transfer to get started.'}</p>{!allMonths && !data.transactions.some((row) => row.currency === currency && monthKey(row.occurred_at, timezone) === month) && <button className="button button--primary" onClick={openCreate}><Plus size={16} /> Add transaction</button>}</div>}
+        {filtered.length > 0 && <div className="table-footer"><span>{allMonths ? `Showing ${filtered.length} matching records across all months` : `Showing ${filtered.length} of ${data.transactions.filter((row) => row.currency === currency && monthKey(row.occurred_at, timezone) === month).length} records for ${month}`}</span><button className="text-link" onClick={exportCsv}>Export filtered CSV <ArrowUpFromLine size={14} /></button></div>}
       </section>
       {formOpen && <Modal title={transaction ? 'Edit transaction' : 'Add a transaction'} description="Keep your monthly totals accurate with a quick record." onClose={() => { setFormOpen(false); setTransaction(null); }}><TransactionForm initial={transaction ?? undefined} onSubmit={save} onCancel={() => { setFormOpen(false); setTransaction(null); }} busy={busy} /></Modal>}
       {importOpen && <CsvImportDialog onClose={() => setImportOpen(false)} onImport={importRows} busy={busy} />}
