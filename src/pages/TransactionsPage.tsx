@@ -8,7 +8,7 @@ import { CsvImportDialog } from '../components/CsvImportDialog';
 import { useToast } from '../lib/use-toast';
 import { formatINR, shortDate } from '../lib/format';
 import { exportTransactionsCsv } from '../lib/csv';
-import { removeTransaction, saveTransaction } from '../lib/data';
+import { removeTransaction, saveTransaction, saveTransactions } from '../lib/data';
 import type { Transaction, TransactionInput, TransactionType } from '../domain/types';
 
 const types: Array<{ value: 'all' | TransactionType; label: string }> = [
@@ -64,10 +64,10 @@ export function TransactionsPage() {
   async function importRows(rows: TransactionInput[]) {
     setBusy(true);
     try {
-      for (const row of rows) await saveTransaction(row);
+      const result = await saveTransactions(rows);
       await refresh();
       setImportOpen(false);
-      notify(`${rows.length} transaction${rows.length === 1 ? '' : 's'} imported.`);
+      notify(`${result.imported} transaction${result.imported === 1 ? '' : 's'} imported${result.failed ? `; ${result.failed} could not be imported` : ''}.`, result.failed ? 'error' : 'success');
     } catch (error) {
       notify(error instanceof Error ? error.message : 'Some transactions could not be imported.', 'error');
     } finally { setBusy(false); }

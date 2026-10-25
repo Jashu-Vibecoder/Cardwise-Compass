@@ -8,7 +8,20 @@ export interface CsvPreviewRow {
   duplicateOf: string | null;
 }
 
-export function parseCsv(text: string): string[][] {
+function detectDelimiter(text: string) {
+  const counts = new Map([[',', 0], [';', 0], ['\t', 0]]);
+  let quoted = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === '"' && text[index + 1] === '"' && quoted) { index += 1; continue; }
+    if (character === '"') quoted = !quoted;
+    else if (!quoted && (character === '\n' || character === '\r')) break;
+    else if (!quoted && counts.has(character)) counts.set(character, (counts.get(character) ?? 0) + 1);
+  }
+  return [...counts].sort((left, right) => right[1] - left[1])[0][0];
+}
+
+export function parseCsv(text: string, delimiter = detectDelimiter(text)): string[][] {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = '';
@@ -20,7 +33,7 @@ export function parseCsv(text: string): string[][] {
       index += 1;
     } else if (character === '"') {
       quoted = !quoted;
-    } else if (!quoted && character === ',') {
+    } else if (!quoted && character === delimiter) {
       row.push(cell);
       cell = '';
     } else if (!quoted && (character === '\n' || character === '\r')) {
@@ -43,13 +56,27 @@ function slug(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
+function isRealDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function parseCsvAmount(value: string, allowNegative: boolean) {
+  const normalized = value.trim().replace(/₹|\bINR\b|\bRs\.?\s*/gi, '').replace(/[\s\u00a0]/g, '');
+  const negative = normalized.startsWith('-');
+  if (negative && !allowNegative) return null;
+  return parseINRAmount(negative ? normalized.slice(1) : normalized);
+}
+
 function rowInput(values: Record<string, string>, categories: Category[]): { input: TransactionInput | null; errors: string[] } {
   const errors: string[] = [];
   const amount = values.amount?.trim() ?? '';
-  const amountMinor = parseINRAmount(amount);
+  const amountMinor = parseCsvAmount(amount, !Object.hasOwn(values, 'type'));
   if (amountMinor === null) errors.push('Amount must be a positive INR amount with up to two decimals.');
   const date = values.date?.trim() ?? '';
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(Date.parse(`${date}T00:00:00Z`))) errors.push('Date must use YYYY-MM-DD.');
+  if (!isRealDate(date)) errors.push('Date must use a real YYYY-MM-DD calendar date.');
   const merchant = (values.merchant || values.description || '').trim();
   if (!merchant) errors.push('Merchant or description is required.');
   const typeValue = (values.type || 'expense').trim().toLowerCase();
@@ -80,7 +107,11 @@ function rowInput(values: Record<string, string>, categories: Category[]): { inp
 }
 
 function duplicateKey(input: TransactionInput) {
-  return [input.occurred_at.slice(0, 10), input.amount_minor, input.transaction_type, input.merchant.trim().toLowerCase()].join('|');
+  return JSON.stringify([
+    input.occurred_at.slice(0, 10), input.amount_minor, input.currency.toUpperCase(), input.transaction_type,
+    input.merchant.trim().toLocaleLowerCase(), input.description?.trim().toLocaleLowerCase() ?? '',
+    input.category_id, input.card_id, input.recurring, input.spend_channel,
+  ]);
 }
 
 export function previewTransactionCsv(text: string, categories: Category[], existing: Transaction[]): CsvPreviewRow[] {

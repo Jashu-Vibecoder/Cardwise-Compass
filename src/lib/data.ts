@@ -334,6 +334,26 @@ export async function saveTransaction(input: TransactionInput, id?: string) {
   assertOk(result.error);
 }
 
+export async function saveTransactions(inputs: TransactionInput[]) {
+  if (inputs.length === 0) return { imported: 0, failed: 0 };
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
+    data.transactions.unshift(...inputs.map((input) => ({ ...input, id: makeId(), user_id: data.profile.id })));
+    writeLocalWorkspace(data);
+    return { imported: inputs.length, failed: 0 };
+  }
+  const userId = await authenticatedUserId();
+  let imported = 0;
+  let failed = 0;
+  for (let offset = 0; offset < inputs.length; offset += 100) {
+    const batch = inputs.slice(offset, offset + 100).map((input) => ({ ...input, user_id: userId }));
+    const { error } = await requireSupabase().from('transactions').insert(batch);
+    if (error) failed += batch.length;
+    else imported += batch.length;
+  }
+  return { imported, failed };
+}
+
 export async function removeTransaction(id: string) {
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();

@@ -13,6 +13,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
   const [rows, setRows] = useState<CsvPreviewRow[]>([]);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
+  const [includeDuplicates, setIncludeDuplicates] = useState(false);
 
   async function chooseFile(file?: File) {
     if (!file) return;
@@ -29,7 +30,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
     }
   }
 
-  const validRows = rows.filter((row) => row.input && row.errors.length === 0 && !row.duplicateOf);
+  const validRows = rows.filter((row) => row.input && row.errors.length === 0 && (!row.duplicateOf || includeDuplicates));
   const duplicateCount = rows.filter((row) => row.duplicateOf).length;
   const invalidCount = rows.filter((row) => row.errors.length > 0).length;
 
@@ -44,6 +45,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
         {error && <div className="inline-error" role="alert">{error}</div>}
         {rows.length > 0 && <>
           <div className="csv-summary"><span><strong>{validRows.length}</strong> ready</span><span className="tone-warning"><strong>{duplicateCount}</strong> possible duplicates</span><span className="tone-negative"><strong>{invalidCount}</strong> need fixing</span></div>
+          {duplicateCount > 0 && <label className="check-field csv-duplicate-confirm"><input type="checkbox" checked={includeDuplicates} onChange={(event) => setIncludeDuplicates(event.target.checked)} /><span><strong>Include possible duplicates</strong><small>I checked these rows and want to import them anyway.</small></span></label>}
           <div className="csv-preview-table"><div className="csv-preview-head"><span>Row</span><span>Merchant</span><span>Date</span><span>Amount</span><span>Status</span></div>
             {rows.slice(0, 8).map((row) => <div className="csv-preview-row" key={row.rowNumber}><span>#{row.rowNumber}</span><span>{row.input?.merchant ?? '—'}</span><span>{row.input?.occurred_at.slice(0, 10) ?? '—'}</span><span>{row.input ? formatINR(row.input.amount_minor) : '—'}</span><span className={row.errors.length ? 'tone-negative' : row.duplicateOf ? 'tone-warning' : 'tone-positive'}>{row.errors.length ? 'Invalid' : row.duplicateOf ? 'Duplicate' : 'Ready'}</span></div>)}
           </div>
