@@ -13,6 +13,7 @@ import type {
   WorkspaceData,
 } from '../domain/types';
 import { isPublicDemoLocation, PREVIEW_STORAGE_KEY, PUBLIC_DEMO_STORAGE_KEY, usesLocalWorkspace, workspaceStorageKey } from '../domain/workspace-mode';
+import { fetchAllPages } from '../domain/pagination';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -222,23 +223,28 @@ export async function loadWorkspace(): Promise<WorkspaceData | null> {
   assertOk(authError);
   if (!auth.user) return null;
 
-  const [profileRes, categoriesRes, catalogRes, cardsRes, budgetsRes, transactionsRes, rewardRulesRes] = await Promise.all([
+  const [profileRes, categoriesRes, catalogRes, cardsRes, budgetsRes, transactions, rewardRulesRes] = await Promise.all([
     client.from('profiles').select('*').single(),
     client.from('categories').select('*').order('name'),
     client.from('credit_card_catalog').select('*').eq('is_active', true).order('issuer_name'),
     client.from('user_cards').select('*, catalog:credit_card_catalog(*)').order('created_at'),
     client.from('budgets').select('*').order('period_start', { ascending: false }),
-    client.from('transactions').select('*').order('occurred_at', { ascending: false }).limit(1000),
+    fetchAllPages(async (start, end) => {
+      const { data, error } = await client.from('transactions').select('*')
+        .order('occurred_at', { ascending: false }).order('id', { ascending: false }).range(start, end);
+      assertOk(error);
+      return (data ?? []) as Transaction[];
+    }),
     client.from('card_reward_rules').select('*').not('verified_at', 'is', null),
   ]);
-  [profileRes, categoriesRes, catalogRes, cardsRes, budgetsRes, transactionsRes, rewardRulesRes].forEach((res) => assertOk(res.error));
+  [profileRes, categoriesRes, catalogRes, cardsRes, budgetsRes, rewardRulesRes].forEach((res) => assertOk(res.error));
   return {
     profile: profileRes.data as Profile,
     categories: categoriesRes.data as Category[],
     catalog: catalogRes.data as CatalogCard[],
     cards: (cardsRes.data as Array<WalletCard & { catalog: CatalogCard }>).map((card) => ({ ...card, catalog: card.catalog })),
     budgets: budgetsRes.data as Budget[],
-    transactions: transactionsRes.data as Transaction[],
+    transactions,
     rewardRules: (rewardRulesRes.data as Array<RewardRule & { qualifying_category_id?: string | null }>).map((rule) => ({
       ...rule,
       category_id: rule.qualifying_category_id ?? rule.category_id ?? null,
