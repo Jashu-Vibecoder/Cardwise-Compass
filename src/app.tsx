@@ -10,6 +10,7 @@ import { ToastProvider } from './components/Toast';
 import { useToast } from './lib/use-toast';
 import { AppShell } from './components/AppShell';
 import { SignInPage } from './pages/SignInPage';
+import { shouldWaitForInitialSession } from './domain/session-state';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then((page) => ({ default: page.DashboardPage })));
 const TransactionsPage = lazy(() => import('./pages/TransactionsPage').then((page) => ({ default: page.TransactionsPage })));
@@ -30,6 +31,7 @@ function ConfigurationScreen() {
 
 function WorkspaceApp() {
   const [session, setSession] = useState<Session | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [data, setData] = useState<WorkspaceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -57,28 +59,31 @@ function WorkspaceApp() {
   useEffect(() => {
     let active = true;
     if (!isSupabaseConfigured && import.meta.env.DEV) {
-      void loadWorkspace().then((next) => { if (active) { setData(next); setLoading(false); } });
+      void loadWorkspace().then((next) => { if (active) { setData(next); setSessionReady(true); setLoading(false); } });
       return () => { active = false; };
     }
-    if (!isSupabaseConfigured) { setLoading(false); return () => { active = false; }; }
+    if (!isSupabaseConfigured) { setSessionReady(true); setLoading(false); return () => { active = false; }; }
     void getSession().then((value) => {
-      if (active) setSession(value);
+      if (active) { setSession(value); setSessionReady(true); }
     }).catch((error: unknown) => {
       if (active) {
         const message = error instanceof Error ? error.message : 'Could not check your session.';
         setPageError(message);
+        setSessionReady(true);
         setLoading(false);
       }
     });
     const subscription = supabase?.auth.onAuthStateChange((_event, value) => {
       setSession(value);
+      setSessionReady(true);
     }).data.subscription;
     return () => { active = false; subscription?.unsubscribe(); };
   }, []);
 
   useEffect(() => {
-    if (!isSupabaseConfigured) return;
     let active = true;
+    if (!isSupabaseConfigured) return () => { active = false; };
+    if (shouldWaitForInitialSession(isSupabaseConfigured, sessionReady)) return () => { active = false; };
     if (!session) {
       setData(null);
       setLoading(false);
@@ -91,7 +96,7 @@ function WorkspaceApp() {
       if (active) setPageError(error instanceof Error ? error.message : 'Could not load your workspace.');
     }).finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [session]);
+  }, [session, sessionReady]);
 
   const context = useMemo(() => data ? { data, month, setMonth, refresh, setBusy, busy } : null, [data, month, refresh, busy]);
 
