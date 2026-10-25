@@ -1,67 +1,156 @@
 # Cardwise Reward Compass
 
-Cardwise is a personal finance and credit card companion for tracking monthly spending, budgets, statement balances, payment dates, reward points, and verified reward estimates. The app is built with React, TypeScript, Vite, and Supabase.
+<div align="center">
+  <p><strong>A clearer view of every card, payment, and purchase.</strong></p>
+  <p>Track credit cards, spending, and budgets in one responsive personal finance workspace.</p>
+  <p><a href="https://github.com/Jashu-Vibecoder/Cardwise-Compass">GitHub repository</a></p>
+</div>
 
-## Local preview
+## Overview
 
-Use Node.js 22.12 or newer.
+Cardwise Reward Compass brings card details and everyday money tracking together. Review spending by month, follow budgets, record statement details, and keep upcoming payment dates in view.
 
-```powershell
-npm install
-npm run dev
-```
+The app can run locally with a fictional preview workspace. Connect your own Supabase project when you want authentication and persistent, user-specific data.
 
-Without Supabase settings, the development server opens a clearly marked, fictional preview workspace stored in this browser. It contains no real account, and its sample transactions and budgets are not uploaded. A production build without Supabase settings shows a setup screen instead of the preview.
+## Features
 
-## Connect Supabase
+- **Spending dashboard:** Monthly summaries, cash flow, category breakdowns, and budget progress.
+- **Transactions:** Add, edit, remove, filter, preview CSV imports, and export records.
+- **Budgets:** Track overall and category budgets against recorded transactions.
+- **Card wallet:** Search the card catalogue and record your own limits, outstanding amounts, due dates, reward points, and notes.
+- **Payment overview:** See combined credit utilization and upcoming due dates when the required statement details have been entered.
+- **Reward estimates:** Estimates use verified reward rules when available. No reward rules are included by default, so estimates may be empty.
+- **Local preview:** Explore fictional sample data without a Supabase account. Preview changes are saved in this browser only and are not shared with the hosted database.
 
-1. Create or select the Supabase project for this app. Before applying the migration to an existing project, inspect its current schema and data.
-2. Copy `.env.example` to `.env.local` and set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` to the project URL and publishable key. These are build-time client settings. Do not put the service role key in a `VITE_` variable or commit it.
-3. Install and authenticate the Supabase CLI, link the intended project, review the migration plan, and apply `supabase/migrations/202610250001_core.sql`:
+## Technology
 
-   ```powershell
-   supabase login
-   supabase link --project-ref hypqxmyhktewycnqluol
-   supabase db push
-   supabase functions deploy delete-account
+- **Frontend:** React 19, TypeScript, Vite 6
+- **Navigation and charts:** React Router 7, Recharts 3, Lucide React
+- **Optional backend:** Supabase Auth, PostgreSQL, and a Deno Edge Function
+- **Quality tools:** ESLint, TypeScript, Vitest, Testing Library, and jsdom
+
+## Quick start
+
+### Prerequisites
+
+- Node.js 22.12+ or a newer supported LTS release
+- npm
+- Git
+
+### Run the local preview
+
+1. Clone the repository:
+
+   ```sh
+   git clone https://github.com/Jashu-Vibecoder/Cardwise-Compass.git
    ```
 
-   `db push` changes the linked database. Review the linked project and pending migrations first. The target project has not been inspected or migrated from this workspace.
-4. Configure your hosting provider with `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, then build and deploy the generated `dist` folder. The service role key belongs only in trusted server environments. Supabase Edge Functions provide the account deletion endpoint; its service role access is server-side.
+2. Enter the project folder:
 
-## Catalogue and demo data
+   ```sh
+   cd Cardwise-Compass
+   ```
 
-The migration seeds default categories and four issuer-identified card entries. It does not seed reward rates, fees, or benefit claims. The source CSV's `Primary Benefit` claims are deliberately excluded until each claim is checked against current issuer terms. Reward estimates remain unavailable until verified rules are added.
+3. Install the locked dependencies:
 
-To import the CSV candidates, set the project URL and service role key in a private PowerShell session. The script checks the target project reference and requires an explicit import flag. By default, it reads `indian_credit_cards_list.csv` from the parent project folder; pass a different file path as the first argument when needed.
+   ```sh
+   npm ci
+   ```
 
-```powershell
-$env:CARDWISE_PROJECT_REF = 'hypqxmyhktewycnqluol'
-$env:CARDWISE_IMPORT_CATALOGUE = 'YES'
-$env:SUPABASE_URL = 'https://hypqxmyhktewycnqluol.supabase.co'
-$env:SUPABASE_SERVICE_ROLE_KEY = '<service role key>'
-npm run catalogue:import
+4. Start the development server:
+
+   ```sh
+   npm run dev
+   ```
+
+5. Open the local URL printed by Vite. By default, it is `http://localhost:5173`.
+
+No environment file is needed for the fictional preview workspace. It is available in development when Supabase is not configured.
+
+## Supabase setup
+
+Supabase is optional for local preview. To use sign-in and persistent user data, create your own Supabase project and configure it for this app.
+
+### Environment variables
+
+Create a local environment file from the blank template:
+
+```sh
+cp .env.example .env.local
 ```
 
-The demo provisioning script creates two separate fictional accounts and synthetic records. Set distinct, unused demo email addresses in `DEMO_USER_A_EMAIL` and `DEMO_USER_B_EMAIL`, plus the same project URL and service role key. It requires `CARDWISE_DEMO_SETUP=YES`. Generated passwords are written to a new gitignored `.demo-credentials-*.txt` file. Keep that file private; it is not suitable for publishing or sharing. The script refuses to overwrite an account that is not marked as a Cardwise demo or that has non-demo financial records.
+Set the following frontend variables in `.env.local` using values from your own Supabase project:
 
-## Commands
+| Variable | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL` | Your Supabase project URL. |
+| `VITE_SUPABASE_ANON_KEY` | The public client key used by the browser. The variable keeps the legacy `ANON_KEY` name used by this codebase. |
 
-```powershell
-npm run typecheck
-npm run lint
-npm test
-npm run build
-npm audit
+Find your project URL and public key in the Supabase Dashboard under **Project Settings -> API Keys**. Supabase's publishable key is intended for client applications; never put a secret or service-role key in a `VITE_` variable or browser code. The `.env.example` file contains blank placeholders only. Keep `.env.local` private and out of commits.
+
+### Database and account deletion
+
+1. In your own Supabase project, open **SQL Editor**.
+2. Open [`supabase/migrations/202610250001_core.sql`](supabase/migrations/202610250001_core.sql), review it, and paste its contents into the SQL Editor to apply it to a new, empty project. The migration itself warns that an existing schema and its data must be inspected before applying it.
+3. This repository does not include a `supabase/config.toml`, so it does not have a configured Supabase CLI migration workflow. If you plan to manage future schema changes with the CLI, set up and link your own project first; avoid mixing untracked dashboard edits with CLI migrations.
+4. Account deletion uses the [`delete-account` Edge Function](supabase/functions/delete-account/index.ts). Its code reads `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` at runtime. Deploy the function separately and make sure those runtime variables are available in your own Supabase project. Follow the [Supabase Edge Functions guide](https://supabase.com/docs/guides/functions/quickstart). The function is not deployed by `npm run dev`.
+
+The browser app only needs the two `VITE_` variables above. `SUPABASE_SERVICE_ROLE_KEY` is privileged: keep it in trusted server-side configuration and never expose it to the browser. The template also has blank server-only fields for optional administrative tooling; they are not needed for the local preview or normal browser app.
+
+## Development commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the Vite development server. |
+| `npm run lint` | Run ESLint. |
+| `npm run typecheck` | Run the TypeScript project checks. |
+| `npm test` | Run the Vitest suite once. |
+| `npm run build` | Type-check and create a production build in `dist/`. |
+| `npm run preview` | Preview an existing production build locally. Run `npm run build` first. |
+
+## Project structure
+
+```text
+Cardwise-Compass/
+|-- src/
+|   |-- components/     Reusable interface components
+|   |-- domain/         Finance types and calculations
+|   |-- lib/            Data access, Supabase client, and shared helpers
+|   `-- pages/          Dashboard and application screens
+|-- supabase/
+|   |-- functions/      Edge Functions
+|   `-- migrations/     Database schema migration
+|-- .env.example        Blank local configuration template
+|-- package.json        Dependencies and npm scripts
+`-- vite.config.ts      Vite and test configuration
 ```
 
-## Data and limitations
+## Security and privacy
 
-- Money is stored as integer minor units in INR. Expenses and refunds affect spending; income is reported separately; transfers are excluded from spend totals.
-- Card limits, current outstanding, minimum due, due dates, points, and notes are entered by the user. Cardwise does not infer statement balances from transactions or calculate a bureau score.
-- Rewards are estimates only and appear only when active, source-backed reward rules have a verification date.
-- Insights are deterministic calculations. The app does not send personal finance data to an AI service.
-- Local preview records live in this browser's local storage. Clearing browser storage removes them.
-- Live account isolation depends on the Supabase row-level security policies in the migration. Remote policy behavior has not been verified until the migration is applied and tested in the selected project.
+- The local preview uses fictional data in browser storage. Do not treat it as a backup or put real financial records in public screenshots, issues, or commits.
+- Frontend `VITE_` variables are bundled for the browser. Use only a public Supabase client key there.
+- Never commit `.env.local`, credentials, private financial data, or privileged Supabase keys. Secret and service-role keys bypass normal row-level access policies and belong only in trusted server-side configuration.
+- Review Supabase Row Level Security and authentication settings for your own project before using real data. This repository does not claim a production security review or hosted deployment.
 
-See [`docs/acceptance-status.md`](docs/acceptance-status.md) for the current verification and deployment state.
+## Troubleshooting
+
+- **The preview data is showing:** This is expected in development when both Supabase variables are not configured. It is fictional and stored in the current browser.
+- **Supabase sign-in or data loading fails:** Check that both frontend variables are set for the same project, restart the Vite server after editing `.env.local`, and confirm the database migration has been applied.
+- **Database tables are missing:** Apply the migration to your own new project after reviewing it. For an existing project, inspect its schema and data before making changes.
+- **The local page uses a different port:** If port `5173` is already occupied, use the alternate URL printed by Vite.
+- **`npm ci` fails:** Confirm Node.js and npm are installed, then retry from the repository root.
+
+## Contributing and license
+
+Bug reports and improvement proposals are welcome through [GitHub Issues](https://github.com/Jashu-Vibecoder/Cardwise-Compass/issues). For a code change, open a pull request with a short summary and the checks you ran.
+
+No license file is currently included, so reuse and redistribution terms have not been specified.
+
+## Helpful references
+
+- [Node.js downloads](https://nodejs.org/en/download)
+- [Vite guide](https://vite.dev/guide/)
+- [Supabase React setup](https://supabase.com/docs/guides/getting-started/tutorials/with-react)
+- [Supabase API keys and security](https://supabase.com/docs/guides/getting-started/api-keys)
+- [Supabase SQL Editor](https://supabase.com/features/sql-editor)
+- [Supabase database migrations](https://supabase.com/docs/guides/deployment/database-migrations)
