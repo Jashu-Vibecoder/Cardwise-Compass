@@ -19,6 +19,7 @@ import { readFunctionErrorMessage } from './function-errors';
 import { findWalletCardToUpdate } from '../domain/wallet-cards';
 import { hasBudgetConflict } from '../domain/budgets';
 import { clearRemovedCardLinks } from '../domain/wallet-cards-links';
+import { requestPasswordReset as sendPasswordReset, updateRecoveredPassword } from './password-recovery';
 import { transactionDedupeKey } from '../domain/transaction-dedupe';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
@@ -219,6 +220,16 @@ export async function signOut() {
     const { error } = await supabase.auth.signOut();
     assertOk(error);
   }
+}
+
+export async function requestPasswordReset(email: string) {
+  const client = requireSupabase();
+  await sendPasswordReset(client, email, `${window.location.origin}/reset-password`);
+}
+
+export async function saveRecoveredPassword(password: string) {
+  const client = requireSupabase();
+  await updateRecoveredPassword(client, password);
 }
 
 export async function loadWorkspace(): Promise<WorkspaceData | null> {

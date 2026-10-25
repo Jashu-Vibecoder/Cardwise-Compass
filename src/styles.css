@@ -34,13 +34,24 @@ h1, h2, h3, .brand-name { font-family: Manrope, 'DM Sans', sans-serif; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
 
 .preview-banner { height: 32px; display: flex; justify-content: center; align-items: center; gap: 8px; color: #eff6ff; background: #345078; font-size: 11px; font-weight: 600; letter-spacing: .015em; }
+.public-demo-banner { background: #285d67; }
 .preview-dot { width: 7px; height: 7px; border-radius: 50%; background: #8ae1c8; box-shadow: 0 0 0 3px rgba(138, 225, 200, .13); }
+.page-content[data-read-only="true"] .page-heading-action,
+.page-content[data-read-only="true"] .row-actions,
+.page-content[data-read-only="true"] .wallet-add-tile,
+.page-content[data-read-only="true"] .add-card-dash,
+.page-content[data-read-only="true"] .card-detail-edit,
+.page-content[data-read-only="true"] .empty-state > .button,
+.page-content[data-read-only="true"] .data-tool-row--danger,
+.page-content[data-read-only="true"] .account-delete-link,
+.page-content[data-read-only="true"] .profile-form-footer button,
+.page-content[data-read-only="true"] .transaction-table th:last-child,
+.page-content[data-read-only="true"] .transaction-table td:last-child { display: none !important; }
 .app-frame { display: flex; width: 100%; height: calc(100vh - 32px); min-height: 640px; overflow: hidden; background: var(--canvas); }
 .preview-banner:empty + .app-frame { height: 100vh; }
 .sidebar { position: relative; z-index: 2; display: flex; flex: 0 0 250px; flex-direction: column; padding: 28px 16px 17px; color: #f4f7fc; background: var(--navy); box-shadow: 8px 0 22px rgba(22, 36, 59, .04); }
 .brand-lockup { display: flex; align-items: center; gap: 10px; padding: 0 12px; }
-.brand-mark { display: grid; width: 35px; height: 35px; flex: 0 0 auto; place-items: center; border-radius: 11px; background: linear-gradient(145deg, #6e88ef, #41b6a4); box-shadow: 0 5px 12px rgba(68, 102, 202, .19); }
-.brand-glyph { margin-top: -3px; color: white; font-family: Manrope, sans-serif; font-size: 25px; font-weight: 800; letter-spacing: -3px; }
+.brand-mark { display: block; width: 35px; height: 35px; flex: 0 0 auto; border-radius: 11px; object-fit: cover; box-shadow: 0 5px 12px rgba(18, 38, 84, .2); }
 .brand-name { display: block; color: white; font-size: 17px; font-weight: 800; letter-spacing: -.045em; line-height: 1.05; }
 .brand-tagline { display: block; margin-top: 4px; color: #90a3bd; font-size: 8px; font-weight: 700; letter-spacing: .19em; }
 .sidebar-caption { margin: 46px 12px 12px; color: #7f93af; font-size: 9px; font-weight: 700; letter-spacing: .12em; }
@@ -298,7 +309,6 @@ h1, h2, h3, .brand-name { font-family: Manrope, 'DM Sans', sans-serif; }
 .preview-banner + .app-frame .sidebar { padding-top: 22px; }
 .loading-screen, .fatal-state { display: grid; min-height: 100vh; place-content: center; justify-items: center; gap: 15px; color: #8290a3; background: #f6f8fb; font-size: 11px; }
 .loading-screen .brand-mark { width: 48px; height: 48px; border-radius: 15px; }
-.loading-screen .brand-glyph { font-size: 34px; }
 .loading-screen p { margin: 0; }
 .loader { width: 19px; height: 19px; border: 2px solid #e7ebf2; border-top-color: #5f7ce8; border-radius: 50%; animation: spin .75s linear infinite; }
 .loader--small { width: 14px; height: 14px; }
@@ -703,6 +713,9 @@ h1, h2, h3, .brand-name { font-family: Manrope, 'DM Sans', sans-serif; }
 .auth-tabs button.active { color: #42577b; background: white; box-shadow: 0 1px 4px rgba(39,56,79,.08); }
 .auth-submit { width: 100%; min-height: 42px; margin-top: 3px; }
 .auth-submit svg { margin-left: auto; }
+.auth-demo-choice { display: grid; gap: 8px; margin-top: 18px; padding-top: 15px; border-top: 1px solid #edf0f4; }
+.auth-demo-choice p { margin: 0; color: #7a8798; font-size: 10px; line-height: 1.5; }
+.auth-demo-choice .button { width: 100%; min-height: 40px; }
 .auth-privacy { display: flex; align-items: flex-start; gap: 8px; margin-top: 20px; padding: 11px; border: 1px solid #eaf0ec; border-radius: 8px; color: #84978f; background: #f8fbf9; font-size: 8px; line-height: 1.5; }
 .auth-privacy svg { flex: 0 0 auto; color: #4b9a7f; }
 .auth-config-note { margin: 12px 0 0; color: #9ba6b3; font-size: 8px; }
@@ -715,6 +728,7 @@ h1, h2, h3, .brand-name { font-family: Manrope, 'DM Sans', sans-serif; }
 .config-screen .brand-lockup > div:last-child { display: grid; }
 .config-screen .fatal-card h1 { font-size: 23px; }
 .config-instructions { display: grid; width: 100%; gap: 8px; margin-top: 5px; padding: 14px; border: 1px solid #e7ebf0; border-radius: 10px; background: #fafbfd; }
+.config-screen .auth-demo-button { width: 100%; margin: 4px 0 14px; }
 .config-instructions strong { margin-bottom: 3px; color: #53647a; font-size: 10px; }
 .config-instructions code { width: fit-content; color: #5269ba; font-size: 10px; }
 .csv-import-body { display: grid; gap: 13px; }
@@ -899,3 +913,10 @@ h1, h2, h3, .brand-name { font-family: Manrope, 'DM Sans', sans-serif; }
   .mobile-nav-link { font-size: 6px; }
   .mobile-nav-link svg { width: 17px; }
 }
+
+.recovery-page { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--page-bg); }
+.recovery-card { width: min(100%, 430px); display: grid; gap: 18px; padding: 32px; border: 1px solid var(--border); border-radius: 20px; background: var(--panel); box-shadow: var(--shadow-lg); }
+.recovery-card h1 { margin: 0; font-size: 27px; }
+.recovery-card > p { margin: -10px 0 0; color: var(--muted); }
+.recovery-card .brand-lockup { margin-bottom: 4px; }
+.auth-forgot-link, .auth-back-link { justify-self: end; }
