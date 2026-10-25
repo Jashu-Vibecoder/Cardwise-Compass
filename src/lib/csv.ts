@@ -140,7 +140,8 @@ export function previewTransactionCsv(text: string, categories: Category[], exis
 
 function escapeCell(value: unknown) {
   const text = value == null ? '' : String(value);
-  return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+  const safeText = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text;
+  return /[",\r\n]/.test(safeText) ? `"${safeText.replaceAll('"', '""')}"` : safeText;
 }
 
 export function exportTransactionsCsv(rows: Transaction[], workspace: WorkspaceData) {

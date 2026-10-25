@@ -77,4 +77,15 @@ describe('transaction CSV', () => {
     expect(csv).toContain('""Great"" coffee"');
     expect(csv.split('\r\n')).toHaveLength(2);
   });
+
+  it('neutralizes spreadsheet formulas in exported text cells', () => {
+    const transaction: Transaction = {
+      id: 'formula', user_id: 'u', card_id: null, category_id: null, amount_minor: 100, currency: 'INR',
+      transaction_type: 'expense', merchant: '=HYPERLINK("https://bad.example")', description: '@SUM(A1:A2)',
+      occurred_at: '2026-10-02T12:00:00+05:30', source: 'manual', is_demo: false, recurring: false, spend_channel: 'unknown',
+    };
+    const csv = exportTransactionsCsv([transaction], { categories, cards: [] } as unknown as WorkspaceData);
+    expect(csv).toContain("'=HYPERLINK(\"\"https://bad.example\"\")");
+    expect(csv).toContain("'@SUM(A1:A2)");
+  });
 });
