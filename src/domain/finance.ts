@@ -124,24 +124,35 @@ export function calculateRewardMinor(amountMinor: number, rateBasisPoints: numbe
 export function calculateCardRewards(transactions: Transaction[], cards: WalletCard[], rules: RewardRule[], month: string, categories: Category[] = [], timezone = 'UTC', currency?: string) {
   const categorySlugs = new Map(categories.map((category) => [category.id, category.slug]));
   return cards.map((card) => {
-    const cardRules = rules.filter((rule) => rule.catalog_card_id === card.catalog_card_id && rule.verified_at && rule.cap_period !== 'statement_cycle');
-    const estimates = cardRules.map((rule) => {
-      const qualifying = transactions.filter((transaction) => {
-        const date = dateOnly(transaction.occurred_at, timezone);
-        return transaction.card_id === card.id
-          && transaction.transaction_type === 'expense'
-          && (!currency || transaction.currency === currency)
-          && monthKey(date, timezone) === month
-          && date >= rule.valid_from
-          && (!rule.valid_until || date <= rule.valid_until)
-          && (rule.channel === 'any' || rule.channel === transaction.spend_channel)
-          && (!rule.category_id || rule.category_id === transaction.category_id)
-          && !rule.excluded_categories.includes(categorySlugs.get(transaction.category_id ?? '') ?? '');
-      });
+    // Stable tie-break: highest rate wins; equal rates use the lexically smallest rule ID.
+    const cardRules = rules
+      .filter((rule) => rule.catalog_card_id === card.catalog_card_id && rule.verified_at && rule.cap_period !== 'statement_cycle')
+      .sort((a, b) => b.rate_basis_points - a.rate_basis_points || a.id.localeCompare(b.id));
+    const allocated = new Map(cardRules.map((rule) => [rule.id, [] as Transaction[]]));
+    const cardTransactions = transactions.filter((transaction) => {
+      const date = dateOnly(transaction.occurred_at, timezone);
+      return transaction.card_id === card.id
+        && transaction.transaction_type === 'expense'
+        && (!currency || transaction.currency === currency)
+        && monthKey(date, timezone) === month;
+    });
+    for (const transaction of cardTransactions) {
+      const date = dateOnly(transaction.occurred_at, timezone);
+      const categorySlug = categorySlugs.get(transaction.category_id ?? '') ?? '';
+      const winner = cardRules.find((rule) => date >= rule.valid_from
+        && (!rule.valid_until || date <= rule.valid_until)
+        && (rule.channel === 'any' || rule.channel === transaction.spend_channel)
+        && (!rule.qualifying_category_id || rule.qualifying_category_id === transaction.category_id)
+        && !rule.excluded_categories.includes(categorySlug));
+      if (winner) allocated.get(winner.id)?.push(transaction);
+    }
+    const estimates = cardRules.flatMap((rule) => {
+      const qualifying = allocated.get(rule.id) ?? [];
+      if (qualifying.length === 0) return [];
       const eligibleSpendMinor = qualifying.reduce((sum, row) => sum + row.amount_minor, 0);
       const rawRewardMinor = qualifying.reduce((sum, row) => sum + calculateRewardMinor(row.amount_minor, rule.rate_basis_points), 0);
       const estimatedRewardMinor = rule.monthly_cap_minor == null ? rawRewardMinor : Math.min(rawRewardMinor, rule.monthly_cap_minor);
-      return { rule, eligibleSpendMinor, estimatedRewardMinor };
+      return [{ rule, eligibleSpendMinor, estimatedRewardMinor }];
     });
     return {
       card,

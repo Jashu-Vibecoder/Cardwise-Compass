@@ -83,7 +83,7 @@ describe('financial calculations', () => {
     const rule = {
       id: 'rule-1', catalog_card_id: 'catalog-1', label: 'Online rewards', channel: 'any' as const,
       rate_basis_points: 500, monthly_cap_minor: null, cap_period: 'none' as const,
-      category_id: null, excluded_categories: ['travel'], source_url: 'https://issuer.example/rules',
+      qualifying_category_id: null, excluded_categories: ['travel'], source_url: 'https://issuer.example/rules',
       verified_at: '2026-10-01', valid_from: '2026-01-01', valid_until: null,
     };
     const rows: Transaction[] = [
@@ -99,6 +99,75 @@ describe('financial calculations', () => {
       eligibleSpendMinor: 10_000,
       estimatedRewardMinor: 500,
     });
+  });
+
+  it('applies only the highest-rate matching rule once per transaction', () => {
+    const card = {
+      id: 'wallet-rewards', user_id: user, catalog_card_id: 'catalog-rewards', nickname: null,
+      card_type: 'credit' as const, last_four: null, monthly_budget_minor: null,
+      credit_limit_minor: null, statement_balance_minor: null, due_date: null,
+      minimum_due_minor: null, reward_points: null, personal_notes: null, is_demo: false,
+      catalog: { id: 'catalog-rewards', issuer_name: 'Bank', card_name: 'Rewards', category: null, aliases: [], official_product_url: null, source_url: null, verification_status: 'verified' as const, last_verified_at: null, benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null },
+    };
+    const baseRule = {
+      catalog_card_id: 'catalog-rewards', channel: 'any' as const, monthly_cap_minor: null,
+      cap_period: 'none' as const, qualifying_category_id: null, excluded_categories: [],
+      source_url: 'https://issuer.example/rules', verified_at: '2026-10-01', valid_from: '2026-01-01', valid_until: null,
+    };
+    const low = { ...baseRule, id: 'low', label: 'Base', rate_basis_points: 200 };
+    const high = { ...baseRule, id: 'high', label: 'Online bonus', rate_basis_points: 500 };
+    const row: Transaction = { ...transactions[0], id: 'eligible', card_id: card.id, amount_minor: 10_000, spend_channel: 'online' };
+    const estimate = calculateCardRewards([row], [card], [low, high], '2026-10', categories)[0];
+    expect(estimate.estimatedRewardMinor).toBe(500);
+    expect(estimate.rules.map(({ rule }) => rule.id)).toEqual(['high']);
+  });
+
+  it('applies monthly caps after allocating eligible spend to a matching rule', () => {
+    const card = {
+      id: 'wallet-cap', user_id: user, catalog_card_id: 'catalog-cap', nickname: null,
+      card_type: 'credit' as const, last_four: null, monthly_budget_minor: null,
+      credit_limit_minor: null, statement_balance_minor: null, due_date: null,
+      minimum_due_minor: null, reward_points: null, personal_notes: null, is_demo: false,
+      catalog: { id: 'catalog-cap', issuer_name: 'Bank', card_name: 'Capped', category: null, aliases: [], official_product_url: null, source_url: null, verification_status: 'verified' as const, last_verified_at: null, benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null },
+    };
+    const rule = {
+      id: 'cap-rule', catalog_card_id: 'catalog-cap', label: 'Five percent', channel: 'any' as const,
+      rate_basis_points: 500, monthly_cap_minor: 300, cap_period: 'calendar_month' as const,
+      qualifying_category_id: 'food', excluded_categories: [], source_url: 'https://issuer.example/rules',
+      verified_at: '2026-10-01', valid_from: '2026-01-01', valid_until: null,
+    };
+    const rows: Transaction[] = [
+      { ...transactions[0], id: 'cap-one', card_id: card.id, amount_minor: 10_000 },
+      { ...transactions[0], id: 'cap-two', card_id: card.id, amount_minor: 10_000 },
+    ];
+    const estimate = calculateCardRewards(rows, [card], [rule], '2026-10', categories)[0];
+    expect(estimate.eligibleSpendMinor).toBe(20_000);
+    expect(estimate.estimatedRewardMinor).toBe(300);
+  });
+
+  it('matches the qualifying category only within the inclusive rule validity dates', () => {
+    const card = {
+      id: 'wallet-validity', user_id: user, catalog_card_id: 'catalog-validity', nickname: null,
+      card_type: 'credit' as const, last_four: null, monthly_budget_minor: null,
+      credit_limit_minor: null, statement_balance_minor: null, due_date: null,
+      minimum_due_minor: null, reward_points: null, personal_notes: null, is_demo: false,
+      catalog: { id: 'catalog-validity', issuer_name: 'Bank', card_name: 'Valid', category: null, aliases: [], official_product_url: null, source_url: null, verification_status: 'verified' as const, last_verified_at: null, benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null },
+    };
+    const rule = {
+      id: 'date-rule', catalog_card_id: 'catalog-validity', label: 'Food bonus', channel: 'any' as const,
+      rate_basis_points: 500, monthly_cap_minor: null, cap_period: 'none' as const,
+      qualifying_category_id: 'food', excluded_categories: [], source_url: 'https://issuer.example/rules',
+      verified_at: '2026-10-01', valid_from: '2026-10-04', valid_until: '2026-10-04',
+    };
+    const rows: Transaction[] = [
+      { ...transactions[0], id: 'before', card_id: card.id, occurred_at: '2026-10-03T12:00:00Z' },
+      { ...transactions[0], id: 'inside', card_id: card.id, occurred_at: '2026-10-04T12:00:00Z' },
+      { ...transactions[1], id: 'wrong-category', category_id: 'travel', card_id: card.id, occurred_at: '2026-10-04T12:00:00Z' },
+      { ...transactions[0], id: 'after', card_id: card.id, occurred_at: '2026-10-05T12:00:00Z' },
+    ];
+    const estimate = calculateCardRewards(rows, [card], [rule], '2026-10', categories)[0];
+    expect(estimate.eligibleSpendMinor).toBe(10_000);
+    expect(estimate.rules.map(({ eligibleSpendMinor }) => eligibleSpendMinor)).toEqual([10_000]);
   });
 
   it('calculates combined utilization only from cards with both statement values', () => {
