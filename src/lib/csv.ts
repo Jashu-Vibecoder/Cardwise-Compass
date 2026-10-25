@@ -141,7 +141,7 @@ export function previewTransactionCsv(text: string, categories: Category[], exis
 
 function escapeCell(value: unknown) {
   const text = value == null ? '' : String(value);
-  const safeText = /^[\t\r ]*[=+\-@]/.test(text) ? `'${text}` : text;
+  const safeText = /^[\t\r]/.test(text) || /^[ ]*[=+\-@]/.test(text) ? `'${text}` : text;
   return /[",\r\n]/.test(safeText) ? `"${safeText.replaceAll('"', '""')}"` : safeText;
 }
 

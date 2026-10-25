@@ -101,4 +101,15 @@ describe('transaction CSV', () => {
     expect(csv).toContain("'=HYPERLINK(\"\"https://bad.example\"\")");
     expect(csv).toContain("'@SUM(A1:A2)");
   });
+
+  it('neutralizes cells starting with tab or carriage return', () => {
+    const transaction: Transaction = {
+      id: 'control-prefix', user_id: 'u', card_id: null, category_id: null, amount_minor: 100, currency: 'INR',
+      transaction_type: 'expense', merchant: '\tSUM(1,1)', description: '\r=1+1',
+      occurred_at: '2026-10-02T12:00:00+05:30', source: 'manual', is_demo: false, recurring: false, spend_channel: 'unknown',
+    };
+    const csv = exportTransactionsCsv([transaction], { categories, cards: [] } as unknown as WorkspaceData);
+    expect(csv).toContain("'\tSUM(1,1)");
+    expect(csv).toContain("'\r=1+1");
+  });
 });
