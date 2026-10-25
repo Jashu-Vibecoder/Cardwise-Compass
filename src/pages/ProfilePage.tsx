@@ -6,6 +6,7 @@ import { Modal } from '../components/Modal';
 import { useToast } from '../lib/use-toast';
 import { deleteMyAccount, deleteMyFinancialData, isPreviewMode, saveProfile } from '../lib/data';
 import { exportTransactionsCsv } from '../lib/csv';
+import { scheduleObjectUrlRevocation } from '../lib/download';
 import { currencySymbol, parseINRAmount } from '../lib/format';
 
 export function ProfilePage() {
@@ -43,7 +44,7 @@ export function ProfilePage() {
     anchor.href = url;
     anchor.download = 'cardwise-my-transactions.csv';
     anchor.click();
-    URL.revokeObjectURL(url);
+    scheduleObjectUrlRevocation(url);
     notify('Your transaction export is ready.');
   }
 

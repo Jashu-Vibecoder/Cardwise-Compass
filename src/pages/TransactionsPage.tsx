@@ -12,6 +12,7 @@ import { removeTransaction, saveTransaction, saveTransactions } from '../lib/dat
 import type { Transaction, TransactionInput, TransactionType } from '../domain/types';
 import { monthKey } from '../domain/finance';
 import { transactionInSelectedScope } from '../domain/transaction-filter';
+import { scheduleObjectUrlRevocation } from '../lib/download';
 
 const types: Array<{ value: 'all' | TransactionType; label: string }> = [
   { value: 'all', label: 'All activity' }, { value: 'expense', label: 'Expenses' }, { value: 'income', label: 'Income' }, { value: 'refund', label: 'Refunds' }, { value: 'transfer', label: 'Transfers' },
@@ -87,7 +88,7 @@ export function TransactionsPage() {
     anchor.href = url;
     anchor.download = `cardwise-transactions-${month}.csv`;
     anchor.click();
-    URL.revokeObjectURL(url);
+    scheduleObjectUrlRevocation(url);
     notify('Your filtered transactions are ready to save.');
   }
 
