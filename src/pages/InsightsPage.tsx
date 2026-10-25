@@ -4,6 +4,8 @@ import { useApp } from '../lib/app-context';
 import { PageHeader } from '../components/PageHeader';
 import { budgetSpent, categoryComparison, monthKey } from '../domain/finance';
 import { formatCurrency, monthLabel, parseINRAmount, shortDate } from '../lib/format';
+import { findCategoryAskedAbout } from '../domain/insights';
+import { Link } from 'react-router-dom';
 
 function previousMonth(month: string) {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -30,8 +32,17 @@ export function InsightsPage() {
   function ask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = question.toLowerCase();
+    const askedCategory = findCategoryAskedAbout(question, data.categories);
     if (!currentMonthRows.some((row) => row.transaction_type === 'expense') && !data.transactions.some((row) => row.currency === currency && monthKey(row.occurred_at, timezone) === previous && row.transaction_type === 'expense')) {
       setAnswer(`There isn’t enough transaction data to compare ${monthLabel(month)} with ${monthLabel(previous)}.`);
+      return;
+    }
+    if (askedCategory) {
+      const categoryNet = (rows: typeof currentMonthRows) => rows
+        .filter((row) => row.category_id === askedCategory.id && (row.transaction_type === 'expense' || row.transaction_type === 'refund'))
+        .reduce((sum, row) => sum + (row.transaction_type === 'refund' ? -row.amount_minor : row.amount_minor), 0);
+      const previousRows = data.transactions.filter((row) => row.currency === currency && monthKey(row.occurred_at, timezone) === previous);
+      setAnswer(`${monthLabel(month)} spending in ${askedCategory.name} is ${money(categoryNet(currentMonthRows))}; it was ${money(categoryNet(previousRows))} in ${monthLabel(previous)}. Refunds reduce the total.`);
       return;
     }
     if (normalized.includes('categor') || normalized.includes('increased') || normalized.includes('changed') || normalized.includes('rose')) {
@@ -76,7 +87,7 @@ export function InsightsPage() {
         <div className="affordability-head"><span className="affordability-icon"><Wallet size={18} /></span><span className="eyebrow">A QUICK ESTIMATE</span></div><h2>Planning a purchase?</h2><p>See how it might fit against your remaining monthly tracking budget.</p>
         <form onSubmit={checkPurchase} className="purchase-form"><label className="field"><span>Planned amount</span><div className="money-input"><span>₹</span><input value={purchase} onChange={(event) => setPurchase(event.target.value)} inputMode="decimal" placeholder="0.00" /></div></label><button className="button button--soft" type="submit">Check budget impact <ArrowUpRight size={15} /></button></form>
         {purchaseResult && <div className="purchase-result" role="status">{purchaseResult}</div>}
-        {remainingMinor !== null ? <div className="remaining-context"><span>Current budget remaining</span><strong className={remainingMinor < 0 ? 'tone-negative' : ''}>{money(remainingMinor)}</strong></div> : <div className="remaining-context"><span>No overall budget for {monthLabel(month)}</span><a href="/budgets">Set a budget</a></div>}
+        {remainingMinor !== null ? <div className="remaining-context"><span>Current budget remaining</span><strong className={remainingMinor < 0 ? 'tone-negative' : ''}>{money(remainingMinor)}</strong></div> : <div className="remaining-context"><span>No overall budget for {monthLabel(month)}</span><Link to="/budgets">Set a budget</Link></div>}
         <div className="estimate-footnote"><CircleHelp size={13} />Known upcoming commitments are included only if you recorded them.</div>
       </article>
     </section>
