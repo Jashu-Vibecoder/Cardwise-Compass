@@ -97,6 +97,18 @@ Find your project URL and public key in the Supabase Dashboard under **Project S
 
 The browser app only needs the two `VITE_` variables above. `SUPABASE_SERVICE_ROLE_KEY` is privileged: keep it in trusted server-side configuration and never expose it to the browser. The template also has blank server-only fields for optional administrative tooling; they are not needed for the local preview or normal browser app.
 
+### Optional administration scripts
+
+The catalogue importer requires an explicit CSV path (or `CARD_CATALOGUE_CSV`), `CARDWISE_PROJECT_REF`, `SUPABASE_URL`, and a server-side `SUPABASE_SERVICE_ROLE_KEY`. Run it only after checking the target project and CSV:
+
+```powershell
+$env:CARDWISE_PROJECT_REF = "your-project-ref"
+$env:CARD_CATALOGUE_CSV = ".\catalogue.csv"
+npm run catalogue:import
+```
+
+The demo provisioning script also requires `CARDWISE_PROJECT_REF` and the matching Supabase server credentials. These scripts do not run as part of the browser app or CI.
+
 ## Development commands
 
 | Command | Purpose |
@@ -107,6 +119,9 @@ The browser app only needs the two `VITE_` variables above. `SUPABASE_SERVICE_RO
 | `npm test` | Run the Vitest suite once. |
 | `npm run build` | Type-check and create a production build in `dist/`. |
 | `npm run preview` | Preview an existing production build locally. Run `npm run build` first. |
+| `npm run catalogue:import -- <csv-path>` | Review and import catalogue candidates from a CSV into the configured Supabase project. Requires explicit target confirmation and server credentials. |
+| `npm run demo:provision` | Provision demo personas in the explicitly confirmed Supabase project. Requires administrative credentials; do not run against production user data. |
+| `npm audit` | Check the installed dependency tree for reported vulnerabilities. |
 
 ## Project structure
 
@@ -117,9 +132,12 @@ Cardwise-Compass/
 |   |-- domain/         Finance types and calculations
 |   |-- lib/            Data access, Supabase client, and shared helpers
 |   `-- pages/          Dashboard and application screens
+|-- docs/               Acceptance notes and project documentation
+|-- scripts/            Catalogue import and demo provisioning tools
+|-- .github/workflows/  CI checks for pull requests and main branch pushes
 |-- supabase/
 |   |-- functions/      Edge Functions
-|   `-- migrations/     Database schema migration
+|   `-- migrations/     Database schema and review-only follow-up migrations
 |-- .env.example        Blank local configuration template
 |-- package.json        Dependencies and npm scripts
 `-- vite.config.ts      Vite and test configuration
