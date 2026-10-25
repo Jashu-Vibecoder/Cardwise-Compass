@@ -17,6 +17,7 @@ import { fetchAllPages } from '../domain/pagination';
 import { searchCatalogRecords } from '../domain/catalog-search';
 import { readFunctionErrorMessage } from './function-errors';
 import { findWalletCardToUpdate } from '../domain/wallet-cards';
+import { hasBudgetConflict } from '../domain/budgets';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -375,9 +376,11 @@ export async function saveBudget(input: BudgetInput, id?: string) {
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
     if (input.currency !== data.profile.preferred_currency) throw new Error('Budget currency must match your profile currency.');
-    const existing = data.budgets.find((row) => row.id === id || (!id && row.period_start === input.period_start && row.category_id === input.category_id));
-    if (existing) data.budgets = data.budgets.map((row) => row.id === existing.id ? { ...row, ...input } : row);
-    else data.budgets.unshift({ ...input, id: makeId(), user_id: data.profile.id, is_demo: true });
+    if (id) data.budgets = data.budgets.map((row) => row.id === id ? { ...row, ...input } : row);
+    else {
+      if (hasBudgetConflict(data.budgets, input)) throw new Error('A budget already exists for this category and month. Edit the existing budget instead.');
+      data.budgets.unshift({ ...input, id: makeId(), user_id: data.profile.id, is_demo: true });
+    }
     writeLocalWorkspace(data);
     return;
   }
@@ -397,9 +400,8 @@ export async function saveBudget(input: BudgetInput, id?: string) {
   lookup = input.category_id ? lookup.eq('category_id', input.category_id) : lookup.is('category_id', null);
   const { data: existing, error: lookupError } = await lookup.maybeSingle();
   assertOk(lookupError);
-  const result = existing
-    ? await client.from('budgets').update(payload).eq('id', existing.id)
-    : await client.from('budgets').insert(payload);
+  if (existing) throw new Error('A budget already exists for this category and month. Edit the existing budget instead.');
+  const result = await client.from('budgets').insert(payload);
   assertOk(result.error);
 }
 
