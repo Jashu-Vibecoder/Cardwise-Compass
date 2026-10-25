@@ -63,7 +63,7 @@ The app can run locally with a fictional preview workspace. Connect your own Sup
    npm run dev
    ```
 
-5. Open the local URL printed by Vite. By default, it is `http://localhost:5173`.
+5. Open the local URL printed by Vite. By default, it is `http://localhost:XXXX`.
 
 No environment file is needed for the fictional preview workspace. It is available in development when Supabase is not configured.
 
