@@ -37,20 +37,31 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
   const [personalNotes, setPersonalNotes] = useState(initialCard?.personal_notes ?? '');
   const [error, setError] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
+  const searchRequest = useRef(0);
   const existing = selected ? data.cards.find((card) => card.catalog_card_id === selected.id) : undefined;
 
   useEffect(() => {
     if (initialCard) return;
     const value = query.trim();
     if (value.length < 2) { setResults([]); setSearching(false); return; }
+    const requestId = ++searchRequest.current;
     setSearching(true);
     const timer = window.setTimeout(() => {
-      void searchCatalog(value, data).then(setResults).catch((issue: unknown) => {
-        setResults([]);
-        setError(issue instanceof Error ? issue.message : 'Card search failed. Try again.');
-      }).finally(() => setSearching(false));
+      void searchCatalog(value, data).then((matches) => {
+        if (requestId === searchRequest.current) setResults(matches);
+      }).catch((issue: unknown) => {
+        if (requestId === searchRequest.current) {
+          setResults([]);
+          setError(issue instanceof Error ? issue.message : 'Card search failed. Try again.');
+        }
+      }).finally(() => {
+        if (requestId === searchRequest.current) setSearching(false);
+      });
     }, 260);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (requestId === searchRequest.current) searchRequest.current += 1;
+    };
   }, [query, data, initialCard]);
 
   function choose(card: CatalogCard) {

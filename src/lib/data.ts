@@ -14,6 +14,7 @@ import type {
 } from '../domain/types';
 import { isPublicDemoLocation, PREVIEW_STORAGE_KEY, PUBLIC_DEMO_STORAGE_KEY, usesLocalWorkspace, workspaceStorageKey } from '../domain/workspace-mode';
 import { fetchAllPages } from '../domain/pagination';
+import { searchCatalogRecords } from '../domain/catalog-search';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -255,20 +256,7 @@ export async function loadWorkspace(): Promise<WorkspaceData | null> {
 export async function searchCatalog(query: string, data: WorkspaceData) {
   const term = query.trim().slice(0, 80);
   if (!term) return [];
-  if (isLocalWorkspace()) {
-    const lowered = term.toLowerCase();
-    return data.catalog.filter((card) => [card.issuer_name, card.card_name, ...card.aliases].some((value) => value.toLowerCase().includes(lowered)));
-  }
-  const safeTerm = term.replace(/[%,()]/g, ' ').trim();
-  const { data: results, error } = await requireSupabase()
-    .from('credit_card_catalog')
-    .select('*')
-    .eq('is_active', true)
-    .or(`issuer_name.ilike.%${safeTerm}%,card_name.ilike.%${safeTerm}%`)
-    .order('issuer_name')
-    .limit(12);
-  assertOk(error);
-  return (results ?? []) as CatalogCard[];
+  return searchCatalogRecords(term, data.catalog);
 }
 
 export type WalletCardDetails = Pick<WalletCard, 'credit_limit_minor' | 'statement_balance_minor' | 'due_date' | 'minimum_due_minor' | 'reward_points' | 'personal_notes'>;
