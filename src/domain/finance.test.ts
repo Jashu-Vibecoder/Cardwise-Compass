@@ -41,6 +41,16 @@ describe('financial calculations', () => {
     ]);
   });
 
+  it('includes uncategorized spending in category totals', () => {
+    const rows = [...transactions, {
+      ...transactions[0], id: 'uncategorized-expense', category_id: null, amount_minor: 1_800,
+    }];
+    expect(categoryTotals(rows, '2026-10', categories)).toContainEqual({
+      id: 'uncategorized', slug: 'uncategorized', name: 'Uncategorized', color: '#9aa5b5',
+      currentMinor: 1_800, percent: (1_800 / 16_800) * 100,
+    });
+  });
+
   it('compares a budget against expenses less refunds only', () => {
     const budget: Budget = { id: 'b', user_id: user, category_id: null, period_start: '2026-10-01', period_end: '2026-10-31', limit_minor: 50_000, currency: 'INR', is_demo: false };
     expect(budgetSpent(transactions, budget)).toBe(15_000);

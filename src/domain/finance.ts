@@ -80,15 +80,21 @@ export function budgetSpent(transactions: Transaction[], budget: Budget) {
 export function categoryTotals(transactions: Transaction[], month: string, categories: Category[]) {
   const rows = transactions.filter((item) => monthKey(item.occurred_at) === month);
   const total = sumTransactions(rows, month).expensesMinor;
-  const result = categories.map((category) => {
-    const current = rows
-      .filter((item) => item.category_id === category.id && item.transaction_type === 'expense')
-      .reduce((sum, item) => sum + item.amount_minor, 0)
-      - rows
-        .filter((item) => item.category_id === category.id && item.transaction_type === 'refund')
-        .reduce((sum, item) => sum + item.amount_minor, 0);
-    return { ...category, currentMinor: Math.max(0, current), percent: total > 0 ? (current / total) * 100 : 0 };
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const currentFor = (categoryId: string | null) => rows
+    .filter((item) => item.category_id === categoryId && (item.transaction_type === 'expense' || item.transaction_type === 'refund'))
+    .reduce((sum, item) => sum + (item.transaction_type === 'refund' ? -item.amount_minor : item.amount_minor), 0);
+  const result = categories.filter((category) => category.slug !== 'uncategorized').map((category) => {
+    const current = currentFor(category.id);
+    return { ...category, currentMinor: Math.max(0, current), percent: total > 0 ? (Math.max(0, current) / total) * 100 : 0 };
   });
+  const uncategorized = categories.find((category) => category.slug === 'uncategorized')
+    ?? { id: 'uncategorized', slug: 'uncategorized', name: 'Uncategorized', color: '#9aa5b5' };
+  const uncategorizedMinor = rows
+    .filter((item) => !item.category_id || categoryById.get(item.category_id)?.slug === 'uncategorized' || !categoryById.has(item.category_id))
+    .filter((item) => item.transaction_type === 'expense' || item.transaction_type === 'refund')
+    .reduce((sum, item) => sum + (item.transaction_type === 'refund' ? -item.amount_minor : item.amount_minor), 0);
+  result.push({ ...uncategorized, currentMinor: Math.max(0, uncategorizedMinor), percent: total > 0 ? (Math.max(0, uncategorizedMinor) / total) * 100 : 0 });
   return result.filter((item) => item.currentMinor > 0).sort((a, b) => b.currentMinor - a.currentMinor);
 }
 
