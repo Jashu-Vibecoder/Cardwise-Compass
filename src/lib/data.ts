@@ -65,7 +65,7 @@ const catalog: CatalogCard[] = [
 
 const profile: Profile = {
   id: PREVIEW_USER,
-  display_name: 'Aarav Mehta',
+  display_name: 'Mira Nair',
   city: 'Bengaluru',
   occupation: 'Product designer · Salaried',
   monthly_income_minor: 7_500_000,
@@ -138,6 +138,7 @@ function readWorkspace(key: string): WorkspaceData {
     const stored = window.localStorage.getItem(key);
     if (!stored) return defaultPreview();
     const parsed = JSON.parse(stored) as WorkspaceData;
+    if (parsed.profile.id === PREVIEW_USER && parsed.profile.display_name === 'Aarav Mehta') parsed.profile.display_name = 'Mira Nair';
     const seededCards = new Map(defaultPreview().cards.map((card) => [card.catalog_card_id, card]));
     parsed.cards = parsed.cards.map((card) => ({ ...seededCards.get(card.catalog_card_id), ...card } as WalletCard));
     return parsed;
