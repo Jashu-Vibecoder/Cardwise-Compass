@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BadgeCheck, CircleHelp, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import type { CatalogCard, WalletCard } from '../domain/types';
-import { parseINRAmount, parseINRAmountOrZero } from '../lib/format';
+import { currencySymbol, parseINRAmount, parseINRAmountOrZero } from '../lib/format';
 import { saveWalletCard, searchCatalog } from '../lib/data';
 import { useApp } from '../lib/app-context';
 import { useToast } from '../lib/use-toast';
@@ -18,12 +18,12 @@ function amountInput(value: number | null | undefined) {
   return value == null ? '' : (value / 100).toFixed(2);
 }
 
-export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; initialCard?: WalletCard }) {
+export function AddCardDialog({ onClose, initialCard, initialCatalogCard, onSaved }: { onClose: () => void; initialCard?: WalletCard; initialCatalogCard?: CatalogCard; onSaved?: (cardId: string) => void }) {
   const { data, refresh, setBusy, busy } = useApp();
   const { notify } = useToast();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CatalogCard[]>([]);
-  const [selected, setSelected] = useState<CatalogCard | null>(initialCard?.catalog ?? null);
+  const [selected, setSelected] = useState<CatalogCard | null>(initialCard?.catalog ?? initialCatalogCard ?? null);
   const [searching, setSearching] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [budget, setBudget] = useState(initialCard?.monthly_budget_minor == null ? '' : (initialCard.monthly_budget_minor / 100).toFixed(2));
@@ -37,43 +37,52 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
   const [personalNotes, setPersonalNotes] = useState(initialCard?.personal_notes ?? '');
   const [error, setError] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
-  const existing = selected ? data.cards.find((card) => card.catalog_card_id === selected.id) : undefined;
+  const searchRequest = useRef(0);
 
   useEffect(() => {
     if (initialCard) return;
     const value = query.trim();
     if (value.length < 2) { setResults([]); setSearching(false); return; }
+    const requestId = ++searchRequest.current;
     setSearching(true);
     const timer = window.setTimeout(() => {
-      void searchCatalog(value, data).then(setResults).catch((issue: unknown) => {
-        setResults([]);
-        setError(issue instanceof Error ? issue.message : 'Card search failed. Try again.');
-      }).finally(() => setSearching(false));
+      void searchCatalog(value, data).then((matches) => {
+        if (requestId === searchRequest.current) setResults(matches);
+      }).catch((issue: unknown) => {
+        if (requestId === searchRequest.current) {
+          setResults([]);
+          setError(issue instanceof Error ? issue.message : 'Card search failed. Try again.');
+        }
+      }).finally(() => {
+        if (requestId === searchRequest.current) setSearching(false);
+      });
     }, 260);
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearTimeout(timer);
+      if (requestId === searchRequest.current) searchRequest.current += 1;
+    };
   }, [query, data, initialCard]);
 
   function choose(card: CatalogCard) {
     setSelected(card);
     setQuery('');
     setError('');
-    const saved = data.cards.find((item) => item.catalog_card_id === card.id);
-    setBudget(saved?.monthly_budget_minor == null ? '' : (saved.monthly_budget_minor / 100).toFixed(2));
-    setNickname(saved?.nickname ?? '');
-    setLastFour(saved?.last_four ?? '');
-    setCreditLimit(amountInput(saved?.credit_limit_minor));
-    setStatementBalance(amountInput(saved?.statement_balance_minor));
-    setDueDate(saved?.due_date ?? '');
-    setMinimumDue(amountInput(saved?.minimum_due_minor));
-    setRewardPoints(saved?.reward_points?.toString() ?? '');
-    setPersonalNotes(saved?.personal_notes ?? '');
+    setBudget('');
+    setNickname('');
+    setLastFour('');
+    setCreditLimit('');
+    setStatementBalance('');
+    setDueDate('');
+    setMinimumDue('');
+    setRewardPoints('');
+    setPersonalNotes('');
   }
 
   function keyNavigate(event: React.KeyboardEvent<HTMLInputElement>) {
     if (event.key === 'ArrowDown') { event.preventDefault(); setActiveIndex((index) => Math.min(results.length - 1, index + 1)); }
     if (event.key === 'ArrowUp') { event.preventDefault(); setActiveIndex((index) => Math.max(0, index - 1)); }
     if (event.key === 'Enter' && activeIndex >= 0 && results[activeIndex]) { event.preventDefault(); choose(results[activeIndex]); }
-    if (event.key === 'Escape') { setResults([]); setActiveIndex(-1); }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setResults([]); setActiveIndex(-1); }
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -93,7 +102,7 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
     setError('');
     setBusy(true);
     try {
-      await saveWalletCard(selected, budgetMinor, initialCard?.id ?? existing?.id, nickname.trim() || null, lastFour || null, {
+      const savedCardId = await saveWalletCard(selected, budgetMinor, initialCard?.id, nickname.trim() || null, lastFour || null, {
         credit_limit_minor: creditLimitMinor,
         statement_balance_minor: statementBalanceMinor,
         due_date: dueDate || null,
@@ -102,14 +111,15 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
         personal_notes: personalNotes.trim() || null,
       });
       await refresh();
-      notify(existing ? 'Card details updated in your wallet.' : 'Card added to your wallet.');
+      notify(initialCard ? 'Card details updated in your wallet.' : 'Card added to your wallet.');
+      onSaved?.(savedCardId);
       onClose();
     } catch (issue) {
       setError(issue instanceof Error ? issue.message : 'This card could not be saved.');
     } finally { setBusy(false); }
   }
 
-  return <Modal title={initialCard ? 'Edit saved card' : 'Add a card'} description={initialCard ? 'Update the tracking details for this card.' : 'Search the catalogue, then choose what you want to track.'} onClose={onClose} size="wide">
+  return <Modal title={initialCard ? 'Edit saved card' : 'Add a card'} description={initialCard ? 'Update the tracking details for this card.' : initialCatalogCard ? 'Enter this card’s details before linking it to your transaction.' : 'Search the catalogue, then choose what you want to track.'} onClose={onClose} size="wide">
     <div className="add-card-body">
       {!selected ? <div className="catalog-search-area">
         <label className="field"><span>Search cards</span><div className="catalog-search-input"><Search size={18} /><input ref={searchRef} autoFocus autoComplete="off" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(-1); setError(''); }} onKeyDown={keyNavigate} placeholder="Search by bank or credit card name" role="combobox" aria-expanded={results.length > 0} aria-controls="catalog-suggestions" aria-autocomplete="list" /></div></label>
@@ -126,19 +136,19 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
           <label className="field"><span>Card nickname <small>Optional</small></span><input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="e.g. Everyday rewards" /></label>
           <label className="field"><span>Last four digits <small>Optional</small></span><input inputMode="numeric" maxLength={4} value={lastFour} onChange={(event) => setLastFour(event.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="••••" /></label>
         </div>
-        <label className="field"><span>Monthly tracking budget <small>Optional</small></span><div className="money-input"><span>₹</span><input inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="Set a personal spend target" /></div><small>A reminder limit you choose. This is not your bank’s credit limit.</small></label>
+        <label className="field"><span>Monthly tracking budget <small>Optional</small></span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={budget} onChange={(event) => setBudget(event.target.value)} placeholder="Set a personal spend target" /></div><small>A reminder limit you choose. This is not your bank’s credit limit.</small></label>
         <div className="card-statement-heading"><strong>Statement tracking</strong><span>Optional values you enter from your latest statement.</span></div>
         <div className="form-grid form-grid--two">
-          <label className="field"><span>Credit limit</span><div className="money-input"><span>₹</span><input inputMode="decimal" value={creditLimit} onChange={(event) => setCreditLimit(event.target.value)} placeholder="e.g. 200000" /></div></label>
-          <label className="field"><span>Current outstanding</span><div className="money-input"><span>₹</span><input inputMode="decimal" value={statementBalance} onChange={(event) => setStatementBalance(event.target.value)} placeholder="e.g. 45000" /></div></label>
+          <label className="field"><span>Credit limit</span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={creditLimit} onChange={(event) => setCreditLimit(event.target.value)} placeholder="e.g. 200000" /></div></label>
+          <label className="field"><span>Current outstanding</span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={statementBalance} onChange={(event) => setStatementBalance(event.target.value)} placeholder="e.g. 45000" /></div></label>
           <label className="field"><span>Payment due date</span><input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
-          <label className="field"><span>Minimum due</span><div className="money-input"><span>₹</span><input inputMode="decimal" value={minimumDue} onChange={(event) => setMinimumDue(event.target.value)} placeholder="e.g. 4500" /></div></label>
+          <label className="field"><span>Minimum due</span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input inputMode="decimal" value={minimumDue} onChange={(event) => setMinimumDue(event.target.value)} placeholder="e.g. 4500" /></div></label>
           <label className="field"><span>Reward points balance</span><input inputMode="numeric" value={rewardPoints} onChange={(event) => setRewardPoints(event.target.value.replace(/\D/g, '').slice(0, 12))} placeholder="e.g. 12500" /></label>
           <label className="field card-notes-field"><span>Personal notes</span><textarea maxLength={500} rows={2} value={personalNotes} onChange={(event) => setPersonalNotes(event.target.value)} placeholder="A note for yourself about this card" /></label>
         </div>
         <div className="verification-note"><Sparkles size={15} /><span>{selected.verification_status === 'identity_verified' ? 'We verified the card name from an issuer source. Reward rates, fees, and terms are not yet verified, so estimates stay off.' : selected.verification_status === 'unverified' ? 'This is an unverified catalogue candidate. Its card details and reward claims should be reviewed before relying on them.' : 'Only verified catalogue details are used for reward estimates.'}</span></div>
         {error && <div className="inline-error" role="alert">{error}</div>}
-        <div className="modal-actions"><button className="button button--quiet" type="button" onClick={onClose}>Cancel</button><button className="button button--primary" type="submit" disabled={busy}>{busy ? 'Saving…' : existing ? 'Update saved card' : 'Add to my cards'}</button></div>
+        <div className="modal-actions"><button className="button button--quiet" type="button" onClick={onClose}>Cancel</button><button className="button button--primary" type="submit" disabled={busy}>{busy ? 'Saving…' : initialCard ? 'Update saved card' : 'Add to my cards'}</button></div>
       </form>}
     </div>
   </Modal>;

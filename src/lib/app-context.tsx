@@ -8,6 +8,8 @@ export interface AppContextValue {
   refresh: () => Promise<void>;
   setBusy: (value: boolean) => void;
   busy: boolean;
+  readOnly: boolean;
+  isDemo: boolean;
 }
 
 export const AppContext = createContext<AppContextValue | null>(null);

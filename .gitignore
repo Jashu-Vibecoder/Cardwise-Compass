@@ -10,3 +10,5 @@ supabase/.temp/
 demo-credentials*.txt
 *.log
 *.tsbuildinfo
+
+.vercel/

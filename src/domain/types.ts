@@ -72,7 +72,7 @@ export interface RewardRule {
   rate_basis_points: number;
   monthly_cap_minor: number | null;
   cap_period: 'calendar_month' | 'statement_cycle' | 'none';
-  category_id: string | null;
+  qualifying_category_id: string | null;
   excluded_categories: string[];
   source_url: string;
   verified_at: string;
@@ -91,6 +91,7 @@ export interface Transaction {
   merchant: string;
   description: string | null;
   occurred_at: string;
+  dedupe_key?: string | null;
   source: TransactionSource;
   is_demo: boolean;
   recurring: boolean;

@@ -4,7 +4,8 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 
-const projectRef = 'hypqxmyhktewycnqluol';
+const projectRef = process.env.CARDWISE_PROJECT_REF?.trim();
+if (!projectRef) throw new Error('Set CARDWISE_PROJECT_REF to the Supabase project you intend to manage.');
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const month = process.env.DEMO_MONTH || new Date().toISOString().slice(0, 7);
 const monthMatch = /^(\d{4})-(0[1-9]|1[0-2])$/.exec(month);

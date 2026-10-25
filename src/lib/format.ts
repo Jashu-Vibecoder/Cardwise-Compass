@@ -1,11 +1,27 @@
-export const currencyFormat = new Intl.NumberFormat('en-IN', {
-  style: 'currency',
-  currency: 'INR',
-  maximumFractionDigits: 0,
-});
+import { dateOnly } from '../domain/dates';
+
+const currencyFormats = new Map<string, Intl.NumberFormat>();
 
 export function formatINR(amountMinor: number) {
-  return currencyFormat.format(amountMinor / 100);
+  return formatCurrency(amountMinor, 'INR');
+}
+
+export function formatCurrency(amountMinor: number, currency: string) {
+  let formatter = currencyFormats.get(currency);
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('en-IN', { style: 'currency', currency, maximumFractionDigits: 2 });
+    currencyFormats.set(currency, formatter);
+  }
+  return formatter.format(amountMinor / 100);
+}
+
+export function currencySymbol(currency: string) {
+  try {
+    return new Intl.NumberFormat('en-IN', { style: 'currency', currency, currencyDisplay: 'narrowSymbol' })
+      .formatToParts(0).find((part) => part.type === 'currency')?.value ?? currency;
+  } catch {
+    return currency;
+  }
 }
 
 export function parseINRAmount(value: string) {
@@ -30,8 +46,10 @@ export function monthLabel(month: string) {
     .format(new Date(Date.UTC(year, monthNumber - 1, 1)));
 }
 
-export function shortDate(date: string) {
-  return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short' }).format(new Date(date));
+export function shortDate(value: string, timezone = 'UTC') {
+  const date = dateOnly(value, timezone);
+  const [year, month, day] = date.split('-').map(Number);
+  return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day)));
 }
 
 export function percent(value: number | null) {
@@ -40,7 +58,6 @@ export function percent(value: number | null) {
   return `${value > 0 ? '+' : value < 0 ? '−' : ''}${rounded}%`;
 }
 
-export function currentMonth() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+export function currentMonth(timezone = 'UTC') {
+  return dateOnly(new Date().toISOString(), timezone).slice(0, 7);
 }

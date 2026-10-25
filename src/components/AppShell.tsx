@@ -1,8 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { Activity, ArrowLeftRight, BadgeIndianRupee, CircleUserRound, CreditCard, Gauge, LayoutDashboard, LogOut, Sparkles } from 'lucide-react';
 import { useApp } from '../lib/app-context';
-import { monthLabel } from '../lib/format';
+import { currentMonth, monthLabel } from '../lib/format';
 import { isPreviewMode } from '../lib/data';
+import { BrandMark } from './BrandMark';
+import { monthOptions } from '../domain/months';
 
 const navigation = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -14,22 +16,14 @@ const navigation = [
   { to: '/profile', label: 'Profile', icon: CircleUserRound },
 ];
 
-function monthOptions(current: string) {
-  const [year, month] = current.split('-').map(Number);
-  return Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(Date.UTC(year, month - 1 - index, 1));
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-  });
-}
-
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
-  const { data, month, setMonth } = useApp();
-  const activeDateOptions = monthOptions(month);
+  const { data, month, setMonth, isDemo } = useApp();
+  const activeDateOptions = monthOptions(currentMonth(data.profile.timezone), month);
   return (
     <div className="app-frame">
       <aside className="sidebar">
         <div className="brand-lockup">
-          <div className="brand-mark"><span className="brand-glyph">c</span></div>
+          <BrandMark />
           <div><span className="brand-name">cardwise</span><span className="brand-tagline">REWARD COMPASS</span></div>
         </div>
         <div className="sidebar-caption">YOUR MONEY, IN VIEW</div>
@@ -49,7 +43,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
         <div className="sidebar-user">
           <div className="avatar avatar--small">{data.profile.display_name.slice(0, 1)}</div>
           <div className="sidebar-user-copy"><strong>{data.profile.display_name}</strong><span>{data.profile.city || 'Your profile'}</span></div>
-          {!isPreviewMode() && <button className="icon-button sidebar-logout" aria-label="Sign out" title="Sign out" onClick={onSignOut}><LogOut size={16} /></button>}
+          <button className="icon-button sidebar-logout" aria-label={isDemo ? 'Exit demo' : isPreviewMode() ? 'Reset preview' : 'Sign out'} title={isDemo ? 'Exit demo' : isPreviewMode() ? 'Reset preview' : 'Sign out'} onClick={onSignOut}><LogOut size={16} /></button>
         </div>
       </aside>
 

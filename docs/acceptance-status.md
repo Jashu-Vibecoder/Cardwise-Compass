@@ -12,7 +12,7 @@
 | Combined utilization and upcoming payment dates | Implemented from complete user-entered statement values |
 | Verified reward-rule estimates with a clear empty state when rules are unavailable | Implemented; no reward rules are seeded |
 | Deterministic insights and profile/data controls | Implemented |
-| Fictional local preview workspace, separate from Supabase accounts | Implemented |
+| Fictional preview workspace and public `?demo=1` route, isolated from Supabase accounts | Implemented; demo writes are browser-local only |
 | Accessibility labels, keyboard operability, responsive layout | Implemented; visual browser review not completed |
 
 ## Verification
@@ -24,11 +24,11 @@
 | ESLint | Passed with no warnings |
 | Production build | Passed; largest emitted route chunk is about 401 kB |
 | Dependency audit | Passed: 0 vulnerabilities |
-| Desktop and mobile browser review | Not completed |
+| Desktop and mobile browser review | Not completed; no browser window is exposed in this session |
 
 ## Remote steps not completed
 
-- The Supabase project `hypqxmyhktewycnqluol` has not been inspected or changed. Apply and validate the migration only after reviewing the existing project schema and migration plan.
+- The configured Supabase project has not been inspected or changed. Apply and validate the migrations only after reviewing the existing project schema and migration plan.
 - The CSV catalogue import and two Supabase demo accounts have not been run. They require the intended project's service role key and distinct demo email addresses.
 - Supabase RLS behavior, sign-up/sign-in, edge-function deployment, account deletion, and remote data isolation have not been tested against the project.
 - No production hosting deployment has been created from this workspace.
