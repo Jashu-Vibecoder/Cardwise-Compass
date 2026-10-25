@@ -8,6 +8,7 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (id.includes('/node_modules/@supabase/')) return 'supabase';
+          if (id.includes('/node_modules/recharts/') || /\/node_modules\/d3-[^/]+\//.test(id)) return 'charts';
         },
       },
     },
