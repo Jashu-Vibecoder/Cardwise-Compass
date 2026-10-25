@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises';
-import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { createClient } from '@supabase/supabase-js';
 
-const projectRef = 'hypqxmyhktewycnqluol';
-const scriptDir = dirname(fileURLToPath(import.meta.url));
-const defaultCsv = resolve(scriptDir, '../../indian_credit_cards_list.csv');
-const csvPath = resolve(process.env.CARD_CATALOGUE_CSV || process.argv[2] || defaultCsv);
+const projectRef = process.env.CARDWISE_PROJECT_REF?.trim();
+if (!projectRef) throw new Error('Set CARDWISE_PROJECT_REF to the Supabase project you intend to manage.');
+const csvInput = process.env.CARD_CATALOGUE_CSV || process.argv[2];
+if (!csvInput) throw new Error('Pass a catalogue CSV path or set CARD_CATALOGUE_CSV.');
+const csvPath = resolve(csvInput);
 
 function parseCsv(text) {
   const rows = [];
