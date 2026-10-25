@@ -1,8 +1,9 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { Activity, ArrowLeftRight, BadgeIndianRupee, CircleUserRound, CreditCard, Gauge, LayoutDashboard, LogOut, Sparkles } from 'lucide-react';
 import { useApp } from '../lib/app-context';
-import { monthLabel } from '../lib/format';
+import { currentMonth, monthLabel } from '../lib/format';
 import { isPreviewMode } from '../lib/data';
+import { monthOptions } from '../domain/months';
 
 const navigation = [
   { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
@@ -14,17 +15,9 @@ const navigation = [
   { to: '/profile', label: 'Profile', icon: CircleUserRound },
 ];
 
-function monthOptions(current: string) {
-  const [year, month] = current.split('-').map(Number);
-  return Array.from({ length: 12 }, (_, index) => {
-    const date = new Date(Date.UTC(year, month - 1 - index, 1));
-    return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
-  });
-}
-
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
   const { data, month, setMonth } = useApp();
-  const activeDateOptions = monthOptions(month);
+  const activeDateOptions = monthOptions(currentMonth(), month);
   return (
     <div className="app-frame">
       <aside className="sidebar">
