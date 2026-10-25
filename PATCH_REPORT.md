@@ -6,7 +6,7 @@ Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 20
 
 | ID | Title | Status | Commit(s) | Files changed | Regression tests |
 |---|---|---|---|---|---|
-| H1 | Isolated public demo mode | needs manual verification | `13183f9`, `d3370af` | `src/domain/workspace-mode.ts`, `src/lib/data.ts`, `src/lib/app-context.tsx`, `src/components/AppShell.tsx`, `src/components/TransactionForm.tsx`, `README.md`, `docs/acceptance-status.md` | `src/domain/workspace-mode.test.ts` |
+| H1 | Isolated public demo mode | needs manual verification | `13183f9`, `d3370af`, `aef8bc6` | `src/domain/workspace-mode.ts`, `src/lib/data.ts`, `src/lib/app-context.tsx`, `src/app.tsx`, `src/components/AppShell.tsx`, `src/components/TransactionForm.tsx`, `README.md`, `docs/acceptance-status.md` | `src/domain/workspace-mode.test.ts` |
 | H2 | Reward rule eligibility and double counting | fixed | `0f357ec`, `8ee590a` | `src/domain/types.ts`, `src/domain/finance.ts`, `src/lib/data.ts`, `src/pages/RewardsPage.tsx` | `src/domain/finance.test.ts` |
 | H3 | Month picker loses current month | fixed | `bef8515` | `src/components/AppShell.tsx`, `src/domain/months.ts` | `src/domain/months.test.ts` |
 | H4 | Custom-category budget blocks account deletion | needs manual verification | `09f05b3`, `482863e` | `supabase/migrations/202610250002_h4_budget_category_cascade.sql`, `supabase/functions/delete-account/index.ts` | Live Postgres test unavailable; inspect migration and function manually |
@@ -27,7 +27,7 @@ Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 20
 | L4 | Modal focus, IDs, Escape, dirty close | needs manual verification | `8ac5f19` | `src/components/Modal.tsx`, `src/components/TransactionForm.tsx`, `src/components/AddCardDialog.tsx` | `src/components/Modal.test.tsx` |
 | L5 | Preview card removal leaves stale transaction links | fixed | `02d1a10` | `src/domain/wallet-cards-links.ts`, `src/lib/data.ts`, `src/components/AppShell.tsx` | `src/domain/wallet-cards-links.test.ts` |
 | L6 | RPC month start and demo/category data guards | needs manual verification | `6371059` | `supabase/migrations/202610250005_l6_data_integrity_guards.sql` | SQL execution pending |
-| L7 | Forgot-password flow | Partially fixed in worktree; no integration commit or live redirect test | — | Worktree: `src/lib/password-recovery.ts`, `src/lib/password-recovery.test.ts`, `src/pages/PasswordRecoveryPage.tsx`, and changes in `src/app.tsx`, `src/lib/data.ts`, `src/pages/SignInPage.tsx`, `src/styles.css` | `src/lib/password-recovery.test.ts` (helper-level only) |
+| L7 | Forgot-password flow | needs manual verification | `aef8bc6` | `src/lib/password-recovery.ts`, `src/lib/data.ts`, `src/pages/PasswordRecoveryPage.tsx`, `src/pages/SignInPage.tsx`, `src/app.tsx` | `src/lib/password-recovery.test.ts` (helper-level only) |
 | L8 | Immediate CSV download URL revocation | fixed | `edab326` | `src/lib/download.ts`, `src/pages/TransactionsPage.tsx`, `src/pages/ProfilePage.tsx` | `src/lib/download.test.ts` |
 | L9 | CI and repository documentation; license | partially fixed | `8c258d2` | `.github/workflows/ci.yml`, `README.md` | CI workflow added; CI service not run here |
 | L10 | Hardcoded Supabase ref and external CSV path | fixed | `38bbf2e` | `scripts/import-catalogue.mjs`, `scripts/provision-demo-users.mjs`, `README.md` | `node --check` on both scripts |
@@ -41,7 +41,7 @@ Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 20
 
 ### H1 — Isolated public demo mode
 
-**Root cause:** `?demo=1` was not a production workspace mode, while local preview and Supabase-backed workspace paths shared write decisions. **Change:** the demo route uses its own browser-storage key and forces workspace data operations to local storage; documentation now explains that fictional demo edits remain in that browser. **Example:** opening `/` with `?demo=1` uses demo records even when Supabase is configured; saving a demo transaction does not call Supabase. **Risk/follow-up:** confirm this with browser network inspection and an authenticated Supabase account before publishing the updated UI; no live account was used here.
+**Root cause:** `?demo=1` was not a production workspace mode, while local preview and Supabase-backed workspace paths shared write decisions. **Change:** the demo route uses its own browser-storage key and forces workspace data operations to local storage; app routing now initializes the demo context and documentation explains that fictional edits remain in that browser. **Example:** opening `/` with `?demo=1` uses demo records even when Supabase is configured; saving a demo transaction does not call Supabase. **Risk/follow-up:** confirm this with browser network inspection and an authenticated Supabase account before publishing the updated UI; no live account was used here.
 
 ### H2 — Reward rule eligibility and double counting
 
@@ -125,7 +125,7 @@ Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 20
 
 ### L7 — Forgot password
 
-**Root cause:** sign-in had no reset path. **Change:** worktree code requests `resetPasswordForEmail`, handles the recovery event, and lets the user save a new password; helper tests pass. **Example:** a reset request targets `/reset-password`. **Risk/follow-up:** these edits overlap pre-existing uncommitted demo-login/branding work, so they were not staged or committed; configure the allowed Supabase redirect URL and test a real recovery email before treating this as complete.
+**Root cause:** sign-in had no reset path. **Change:** the committed flow requests `resetPasswordForEmail`, handles the recovery event, and lets the user save a new password; helper tests pass. **Example:** a reset request targets `/reset-password`. **Risk/follow-up:** configure the allowed Supabase redirect URL and test a real recovery email before treating this as complete. Shared demo credentials were not included in the commit; the app offers a separate fictional demo path.
 
 ### L8 — Download URL lifetime
 
@@ -274,4 +274,4 @@ No migration was applied to a live database. Required follow-up: apply and verif
 
 ## Commit information
 
-All issue fix commits are on local branch `fix/bug-audit-oct-2026`. Follow-up commits exist for H1, H2, H4, H5, M4, M5, and M8. Pre-existing uncommitted branding/demo-auth work was kept separate from the audit branch changes.
+All issue fix commits are on local branch `fix/bug-audit-oct-2026`. Follow-up commits exist for H1, H2, H4, H5, M4, M5, and M8. The user-requested brand image and public-demo/recovery integration were committed in `aef8bc6`; the credential file remains untracked and was not committed.
