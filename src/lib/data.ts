@@ -45,20 +45,20 @@ const catalog: CatalogCard[] = [
   },
   {
     id: 'catalog-sbi-cashback', issuer_name: 'SBI Card', card_name: 'Cashback SBI Card', category: 'Cashback & Shopping', aliases: ['CASHBACK SBI Card'],
-    official_product_url: 'https://www.sbicard.com/en/personal/credit-cards.html',
-    source_url: 'https://www.sbicard.com/en/personal/credit-cards.html',
+    official_product_url: 'https://www.sbicard.com/en/personal/credit-cards/cashback-sbi-card.html',
+    source_url: 'https://www.sbicard.com/en/personal/credit-cards/cashback-sbi-card.html',
     verification_status: 'identity_verified', last_verified_at: '2026-10-25', benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null,
   },
   {
     id: 'catalog-axis-ace', issuer_name: 'Axis Bank', card_name: 'ACE Credit Card', category: 'Cashback & Utility', aliases: ['Axis ACE'],
-    official_product_url: 'https://www.axisbank.com/retail/cards/credit-card/ace-credit-card',
-    source_url: 'https://www.axisbank.com/docs/default-source/default-document-library/ace-card-new.pdf',
+    official_product_url: 'https://www.axis.bank.in/cards/credit-card/axis-bank-ace-credit-card',
+    source_url: 'https://www.axis.bank.in/cards/credit-card/axis-bank-ace-credit-card',
     verification_status: 'identity_verified', last_verified_at: '2026-10-25', benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null,
   },
   {
     id: 'catalog-icici-amazon-pay', issuer_name: 'ICICI Bank', card_name: 'Amazon Pay ICICI Bank Credit Card', category: 'Cashback & Shopping', aliases: ['Amazon Pay ICICI'],
     official_product_url: 'https://www.icicibank.com/personal-banking/cards/credit-card/amazon-pay-credit-card',
-    source_url: 'https://www.icicibank.com/personal-banking/cards/credit-card/amazon-pay-credit-card/amazon-pay-faq',
+    source_url: 'https://www.icicibank.com/personal-banking/cards/credit-card/amazon-pay-credit-card.html',
     verification_status: 'identity_verified', last_verified_at: '2026-10-25', benefit_summary: null, annual_fee_minor: null, joining_fee_minor: null,
   },
 ];
