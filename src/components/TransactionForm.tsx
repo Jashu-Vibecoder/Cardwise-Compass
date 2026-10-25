@@ -10,7 +10,7 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
   onCancel: () => void;
   busy: boolean;
 }) {
-  const { data } = useApp();
+  const { data, setBusy, isDemo } = useApp();
   const [amount, setAmount] = useState(initial ? (initial.amount_minor / 100).toFixed(2) : '');
   const [merchant, setMerchant] = useState(initial?.merchant ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
@@ -35,7 +35,7 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
       card_id: cardId || null, category_id: categoryId || null, amount_minor: amountMinor,
       currency: data.profile.preferred_currency, transaction_type: type, merchant: merchant.trim(),
       description: description.trim() || null, occurred_at: `${date}T12:00:00+05:30`,
-      source: initial?.source ?? 'manual', is_demo: initial?.is_demo ?? false, recurring, spend_channel: channel,
+      source: initial?.source ?? 'manual', is_demo: initial?.is_demo ?? isDemo, recurring, spend_channel: channel,
     });
   }
 

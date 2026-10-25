@@ -16,7 +16,7 @@ const navigation = [
 ];
 
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
-  const { data, month, setMonth } = useApp();
+  const { data, month, setMonth, isDemo } = useApp();
   const activeDateOptions = monthOptions(currentMonth(), month);
   return (
     <div className="app-frame">
@@ -42,7 +42,7 @@ export function AppShell({ onSignOut }: { onSignOut: () => void }) {
         <div className="sidebar-user">
           <div className="avatar avatar--small">{data.profile.display_name.slice(0, 1)}</div>
           <div className="sidebar-user-copy"><strong>{data.profile.display_name}</strong><span>{data.profile.city || 'Your profile'}</span></div>
-          {!isPreviewMode() && <button className="icon-button sidebar-logout" aria-label="Sign out" title="Sign out" onClick={onSignOut}><LogOut size={16} /></button>}
+          {(!isPreviewMode() || isDemo) && <button className="icon-button sidebar-logout" aria-label={isDemo ? 'Exit demo' : 'Sign out'} title={isDemo ? 'Exit demo' : 'Sign out'} onClick={onSignOut}><LogOut size={16} /></button>}
         </div>
       </aside>
 

@@ -12,8 +12,9 @@ import type {
   WalletCard,
   WorkspaceData,
 } from '../domain/types';
+import { isPublicDemoLocation, PREVIEW_STORAGE_KEY, PUBLIC_DEMO_STORAGE_KEY, usesLocalWorkspace, workspaceStorageKey } from '../domain/workspace-mode';
 
-const PREVIEW_KEY = 'cardwise-preview-v1';
+const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
 
 const categories: Category[] = [
@@ -121,10 +122,14 @@ function defaultPreview(): WorkspaceData {
   return { profile, categories, catalog, cards, budgets, transactions, rewardRules: [] };
 }
 
-function readPreview(): WorkspaceData {
+export function createPublicDemoWorkspace(): WorkspaceData {
+  return readWorkspace(PUBLIC_DEMO_STORAGE_KEY);
+}
+
+function readWorkspace(key: string): WorkspaceData {
   if (typeof window === 'undefined') return defaultPreview();
   try {
-    const stored = window.localStorage.getItem(PREVIEW_KEY);
+    const stored = window.localStorage.getItem(key);
     if (!stored) return defaultPreview();
     const parsed = JSON.parse(stored) as WorkspaceData;
     const seededCards = new Map(defaultPreview().cards.map((card) => [card.catalog_card_id, card]));
@@ -135,8 +140,26 @@ function readPreview(): WorkspaceData {
   }
 }
 
-function writePreview(data: WorkspaceData) {
-  if (typeof window !== 'undefined') window.localStorage.setItem(PREVIEW_KEY, JSON.stringify(data));
+function readPreview(): WorkspaceData {
+  return readWorkspace(PREVIEW_KEY);
+}
+
+function isPublicDemo() {
+  return typeof window !== 'undefined' && isPublicDemoLocation(window.location.search);
+}
+
+function isLocalWorkspace() {
+  return usesLocalWorkspace(isPublicDemo(), isSupabaseConfigured);
+}
+
+function readLocalWorkspace() {
+  return readWorkspace(workspaceStorageKey(isPublicDemo()));
+}
+
+function writeLocalWorkspace(data: WorkspaceData) {
+  if (typeof window === 'undefined') return;
+  const key = workspaceStorageKey(isPublicDemo());
+  window.localStorage.setItem(key, JSON.stringify(data));
 }
 
 function makeId() {
@@ -160,6 +183,7 @@ function assertOk(error: { message: string } | null) {
 }
 
 export async function getSession() {
+  if (isPublicDemo()) return null;
   if (!supabase) return null;
   const { data, error } = await supabase.auth.getSession();
   assertOk(error);
@@ -190,6 +214,7 @@ export async function signOut() {
 }
 
 export async function loadWorkspace(): Promise<WorkspaceData | null> {
+  if (isPublicDemo()) return createPublicDemoWorkspace();
   if (!isSupabaseConfigured && import.meta.env.DEV) return readPreview();
   if (!isSupabaseConfigured) throw new Error('Supabase is not configured for this deployment.');
   const client = requireSupabase();
@@ -224,7 +249,7 @@ export async function loadWorkspace(): Promise<WorkspaceData | null> {
 export async function searchCatalog(query: string, data: WorkspaceData) {
   const term = query.trim().slice(0, 80);
   if (!term) return [];
-  if (!isSupabaseConfigured) {
+  if (isLocalWorkspace()) {
     const lowered = term.toLowerCase();
     return data.catalog.filter((card) => [card.issuer_name, card.card_name, ...card.aliases].some((value) => value.toLowerCase().includes(lowered)));
   }
@@ -244,37 +269,43 @@ export type WalletCardDetails = Pick<WalletCard, 'credit_limit_minor' | 'stateme
 
 export async function saveWalletCard(catalogCard: CatalogCard, monthlyBudgetMinor: number | null, existingId?: string, nickname: string | null = null, lastFour: string | null = null, details: WalletCardDetails = {
   credit_limit_minor: null, statement_balance_minor: null, due_date: null, minimum_due_minor: null, reward_points: null, personal_notes: null,
-}) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+}): Promise<string> {
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     const found = data.cards.find((card) => card.catalog_card_id === catalogCard.id);
     if (found) {
       found.monthly_budget_minor = monthlyBudgetMinor;
       found.nickname = nickname;
       found.last_four = lastFour;
       Object.assign(found, details);
+      writeLocalWorkspace(data);
+      return found.id;
     } else {
+      const id = makeId();
       data.cards.push({
-        id: makeId(), user_id: data.profile.id, catalog_card_id: catalogCard.id, nickname,
+        id, user_id: data.profile.id, catalog_card_id: catalogCard.id, nickname,
         card_type: 'credit', last_four: lastFour, monthly_budget_minor: monthlyBudgetMinor, ...details, is_demo: true, catalog: catalogCard,
       });
+      writeLocalWorkspace(data);
+      return id;
     }
-    writePreview(data);
-    return;
   }
   const userId = await authenticatedUserId();
   const payload = { user_id: userId, catalog_card_id: catalogCard.id, monthly_budget_minor: monthlyBudgetMinor, card_type: 'credit', nickname, last_four: lastFour, ...details };
+  const client = requireSupabase();
   const result = existingId
-    ? await requireSupabase().from('user_cards').update(payload).eq('id', existingId)
-    : await requireSupabase().from('user_cards').upsert(payload, { onConflict: 'user_id,catalog_card_id', ignoreDuplicates: false });
+    ? await client.from('user_cards').update(payload).eq('id', existingId).select('id').single()
+    : await client.from('user_cards').upsert(payload, { onConflict: 'user_id,catalog_card_id', ignoreDuplicates: false }).select('id').single();
   assertOk(result.error);
+  if (!result.data) throw new Error('Card could not be saved to your wallet.');
+  return result.data.id;
 }
 
 export async function removeWalletCard(id: string) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     data.cards = data.cards.filter((card) => card.id !== id);
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const { error } = await requireSupabase().from('user_cards').delete().eq('id', id);
@@ -282,11 +313,11 @@ export async function removeWalletCard(id: string) {
 }
 
 export async function saveTransaction(input: TransactionInput, id?: string) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     if (id) data.transactions = data.transactions.map((row) => row.id === id ? { ...row, ...input } : row);
     else data.transactions.unshift({ ...input, id: makeId(), user_id: data.profile.id });
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const userId = await authenticatedUserId();
@@ -298,10 +329,10 @@ export async function saveTransaction(input: TransactionInput, id?: string) {
 }
 
 export async function removeTransaction(id: string) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     data.transactions = data.transactions.filter((row) => row.id !== id);
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const { error } = await requireSupabase().from('transactions').delete().eq('id', id);
@@ -309,12 +340,12 @@ export async function removeTransaction(id: string) {
 }
 
 export async function saveBudget(input: BudgetInput, id?: string) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     const existing = data.budgets.find((row) => row.id === id || (!id && row.period_start === input.period_start && row.category_id === input.category_id));
     if (existing) data.budgets = data.budgets.map((row) => row.id === existing.id ? { ...row, ...input } : row);
     else data.budgets.unshift({ ...input, id: makeId(), user_id: data.profile.id, is_demo: true });
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const userId = await authenticatedUserId();
@@ -336,10 +367,10 @@ export async function saveBudget(input: BudgetInput, id?: string) {
 }
 
 export async function removeBudget(id: string) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     data.budgets = data.budgets.filter((budget) => budget.id !== id);
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const { error } = await requireSupabase().from('budgets').delete().eq('id', id);
@@ -347,10 +378,10 @@ export async function removeBudget(id: string) {
 }
 
 export async function saveProfile(input: Pick<Profile, 'display_name' | 'city' | 'occupation' | 'monthly_income_minor'>) {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     data.profile = { ...data.profile, ...input };
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const { error } = await requireSupabase().from('profiles').update(input).eq('id', await authenticatedUserId());
@@ -358,12 +389,12 @@ export async function saveProfile(input: Pick<Profile, 'display_name' | 'city' |
 }
 
 export async function deleteMyFinancialData() {
-  if (!isSupabaseConfigured) {
-    const data = readPreview();
+  if (isLocalWorkspace()) {
+    const data = readLocalWorkspace();
     data.cards = [];
     data.budgets = [];
     data.transactions = [];
-    writePreview(data);
+    writeLocalWorkspace(data);
     return;
   }
   const { error } = await requireSupabase().rpc('delete_my_financial_data');
@@ -371,6 +402,7 @@ export async function deleteMyFinancialData() {
 }
 
 export async function deleteMyAccount() {
+  if (isLocalWorkspace()) throw new Error('Account deletion is unavailable in the local demo workspace.');
   const client = requireSupabase();
   const { error } = await client.functions.invoke('delete-account', { method: 'POST', body: {} });
   assertOk(error);
