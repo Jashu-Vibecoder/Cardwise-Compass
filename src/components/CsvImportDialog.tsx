@@ -6,6 +6,7 @@ import type { TransactionInput } from '../domain/types';
 import { formatINR } from '../lib/format';
 import { useApp } from '../lib/app-context';
 import { Modal } from './Modal';
+import { dateOnly } from '../domain/dates';
 
 export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => void; onImport: (rows: TransactionInput[]) => Promise<void>; busy: boolean }) {
   const { data } = useApp();
@@ -21,7 +22,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
     setFileName(file.name);
     try {
       const text = await file.text();
-      const preview = previewTransactionCsv(text, data.categories, data.transactions);
+      const preview = previewTransactionCsv(text, data.categories, data.transactions, data.profile.timezone);
       setRows(preview);
       if (preview.length === 0) setError('This CSV has a header row but no transactions.');
     } catch (issue) {
@@ -47,7 +48,7 @@ export function CsvImportDialog({ onClose, onImport, busy }: { onClose: () => vo
           <div className="csv-summary"><span><strong>{validRows.length}</strong> ready</span><span className="tone-warning"><strong>{duplicateCount}</strong> possible duplicates</span><span className="tone-negative"><strong>{invalidCount}</strong> need fixing</span></div>
           {duplicateCount > 0 && <label className="check-field csv-duplicate-confirm"><input type="checkbox" checked={includeDuplicates} onChange={(event) => setIncludeDuplicates(event.target.checked)} /><span><strong>Include possible duplicates</strong><small>I checked these rows and want to import them anyway.</small></span></label>}
           <div className="csv-preview-table"><div className="csv-preview-head"><span>Row</span><span>Merchant</span><span>Date</span><span>Amount</span><span>Status</span></div>
-            {rows.slice(0, 8).map((row) => <div className="csv-preview-row" key={row.rowNumber}><span>#{row.rowNumber}</span><span>{row.input?.merchant ?? '—'}</span><span>{row.input?.occurred_at.slice(0, 10) ?? '—'}</span><span>{row.input ? formatINR(row.input.amount_minor) : '—'}</span><span className={row.errors.length ? 'tone-negative' : row.duplicateOf ? 'tone-warning' : 'tone-positive'}>{row.errors.length ? 'Invalid' : row.duplicateOf ? 'Duplicate' : 'Ready'}</span></div>)}
+            {rows.slice(0, 8).map((row) => <div className="csv-preview-row" key={row.rowNumber}><span>#{row.rowNumber}</span><span>{row.input?.merchant ?? '—'}</span><span>{row.input ? dateOnly(row.input.occurred_at, data.profile.timezone) : '—'}</span><span>{row.input ? formatINR(row.input.amount_minor) : '—'}</span><span className={row.errors.length ? 'tone-negative' : row.duplicateOf ? 'tone-warning' : 'tone-positive'}>{row.errors.length ? 'Invalid' : row.duplicateOf ? 'Duplicate' : 'Ready'}</span></div>)}
           </div>
           {(duplicateCount > 0 || invalidCount > 0) && <p className="csv-note">Possible duplicates and invalid rows are skipped. {rows.length > 8 ? `${rows.length - 8} more rows are not shown.` : ''}</p>}
         </>}

@@ -11,7 +11,8 @@ import { removeBudget, saveBudget } from '../lib/data';
 import type { Budget, BudgetInput } from '../domain/types';
 
 export function BudgetsPage() {
-  const { data, month, refresh, setBusy, busy } = useApp();
+  const { data, month, refresh, setBusy, busy, readOnly } = useApp();
+  const timezone = data.profile.timezone;
   const { notify } = useToast();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Budget | null>(null);
@@ -43,7 +44,7 @@ export function BudgetsPage() {
   function openEdit(item: Budget) { setEditing(item); setOpen(true); }
 
   function card(budget: Budget) {
-    const spent = Math.max(0, budgetSpent(data.transactions, budget));
+    const spent = Math.max(0, budgetSpent(data.transactions, budget, timezone));
     const ratio = budget.limit_minor ? spent / budget.limit_minor : 0;
     const category = data.categories.find((item) => item.id === budget.category_id);
     const tone = ratio >= 1 ? 'progress-fill--over' : ratio >= 0.8 ? 'progress-fill--warn' : '';
@@ -56,7 +57,7 @@ export function BudgetsPage() {
     </article>;
   }
 
-  return <div className="page-content">
+  return <div className="page-content" data-read-only={readOnly}>
     <PageHeader eyebrow="PLAN WITH CLARITY" title="Budgets" description={`Keep spending in context for ${monthLabel(month)}.`} action={<button className="button button--primary" onClick={openCreate}><Plus size={17} /> Create budget</button>} />
     <div className="budget-notice"><ShieldCheck size={17} /><span><strong>Your numbers, your boundaries.</strong> Budgets are personal tracking limits. They are never treated as a bank-set credit limit.</span></div>
     {budgets.length ? <>

@@ -36,6 +36,11 @@ function WorkspaceApp() {
   const [month, setMonth] = useState(currentMonth());
   const [pageError, setPageError] = useState('');
   const { notify } = useToast();
+  const profileTimezone = data?.profile.timezone;
+
+  useEffect(() => {
+    if (profileTimezone) setMonth((selected) => selected === currentMonth() ? currentMonth(profileTimezone) : selected);
+  }, [profileTimezone]);
 
   const refresh = useCallback(async () => {
     setPageError('');

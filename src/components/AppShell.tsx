@@ -3,6 +3,7 @@ import { Activity, ArrowLeftRight, BadgeIndianRupee, CircleUserRound, CreditCard
 import { useApp } from '../lib/app-context';
 import { currentMonth, monthLabel } from '../lib/format';
 import { isPreviewMode } from '../lib/data';
+import { BrandMark } from './BrandMark';
 import { monthOptions } from '../domain/months';
 
 const navigation = [
@@ -17,12 +18,12 @@ const navigation = [
 
 export function AppShell({ onSignOut }: { onSignOut: () => void }) {
   const { data, month, setMonth, isDemo } = useApp();
-  const activeDateOptions = monthOptions(currentMonth(), month);
+  const activeDateOptions = monthOptions(currentMonth(data.profile.timezone), month);
   return (
     <div className="app-frame">
       <aside className="sidebar">
         <div className="brand-lockup">
-          <div className="brand-mark"><span className="brand-glyph">c</span></div>
+          <BrandMark />
           <div><span className="brand-name">cardwise</span><span className="brand-tagline">REWARD COMPASS</span></div>
         </div>
         <div className="sidebar-caption">YOUR MONEY, IN VIEW</div>

@@ -1,5 +1,6 @@
 import type { Category, Transaction, TransactionInput, TransactionType, WorkspaceData } from '../domain/types';
 import { parseINRAmount } from './format';
+import { dateOnly, timestampAtLocalNoon } from '../domain/dates';
 
 export interface CsvPreviewRow {
   rowNumber: number;
@@ -70,7 +71,7 @@ function parseCsvAmount(value: string, allowNegative: boolean) {
   return parseINRAmount(negative ? normalized.slice(1) : normalized);
 }
 
-function rowInput(values: Record<string, string>, categories: Category[]): { input: TransactionInput | null; errors: string[] } {
+function rowInput(values: Record<string, string>, categories: Category[], timezone: string): { input: TransactionInput | null; errors: string[] } {
   const errors: string[] = [];
   const amount = values.amount?.trim() ?? '';
   const amountMinor = parseCsvAmount(amount, !Object.hasOwn(values, 'type'));
@@ -96,7 +97,7 @@ function rowInput(values: Record<string, string>, categories: Category[]): { inp
       transaction_type: typeValue as TransactionType,
       merchant,
       description: values.description?.trim() || null,
-      occurred_at: `${date}T12:00:00+05:30`,
+      occurred_at: timestampAtLocalNoon(date, timezone),
       source: 'csv_import',
       is_demo: false,
       recurring: false,
@@ -106,15 +107,15 @@ function rowInput(values: Record<string, string>, categories: Category[]): { inp
   };
 }
 
-function duplicateKey(input: TransactionInput) {
+function duplicateKey(input: TransactionInput, timezone: string) {
   return JSON.stringify([
-    input.occurred_at.slice(0, 10), input.amount_minor, input.currency.toUpperCase(), input.transaction_type,
+    dateOnly(input.occurred_at, timezone), input.amount_minor, input.currency.toUpperCase(), input.transaction_type,
     input.merchant.trim().toLocaleLowerCase(), input.description?.trim().toLocaleLowerCase() ?? '',
     input.category_id, input.card_id, input.recurring, input.spend_channel,
   ]);
 }
 
-export function previewTransactionCsv(text: string, categories: Category[], existing: Transaction[]): CsvPreviewRow[] {
+export function previewTransactionCsv(text: string, categories: Category[], existing: Transaction[], timezone = 'UTC'): CsvPreviewRow[] {
   const rows = parseCsv(text);
   if (rows.length === 0) return [];
   const headers = rows[0].map((value) => value.trim().toLowerCase());
@@ -124,13 +125,13 @@ export function previewTransactionCsv(text: string, categories: Category[], exis
   const seen = new Map<string, string>();
   for (const transaction of existing) {
     const input: TransactionInput = { ...transaction, category_id: transaction.category_id, card_id: transaction.card_id };
-    seen.set(duplicateKey(input), transaction.id);
+    seen.set(duplicateKey(input, timezone), transaction.id);
   }
   return rows.slice(1).map((cells, index) => {
     const values = Object.fromEntries(headers.map((header, column) => [header, cells[column] ?? '']));
-    const parsed = rowInput(values, categories);
+    const parsed = rowInput(values, categories, timezone);
     if (!parsed.input) return { rowNumber: index + 2, input: null, errors: parsed.errors, duplicateOf: null };
-    const key = duplicateKey(parsed.input);
+    const key = duplicateKey(parsed.input, timezone);
     const duplicateOf = seen.get(key) ?? null;
     const syntheticId = `csv-row-${index + 2}`;
     seen.set(key, syntheticId);
@@ -151,7 +152,7 @@ export function exportTransactionsCsv(rows: Transaction[], workspace: WorkspaceD
     const category = workspace.categories.find((item) => item.id === transaction.category_id)?.name ?? 'Uncategorized';
     const card = workspace.cards.find((item) => item.id === transaction.card_id)?.catalog.card_name ?? '';
     const cells = [
-      transaction.occurred_at.slice(0, 10), (transaction.amount_minor / 100).toFixed(2), transaction.currency,
+      dateOnly(transaction.occurred_at, workspace.profile?.timezone ?? 'UTC'), (transaction.amount_minor / 100).toFixed(2), transaction.currency,
       transaction.transaction_type, transaction.merchant, transaction.description, category, card, transaction.source, transaction.is_demo,
     ];
     output.push(cells.map(escapeCell).join(','));

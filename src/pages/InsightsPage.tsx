@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 import { ArrowDownRight, ArrowUpRight, CircleHelp, Lightbulb, Search, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { useApp } from '../lib/app-context';
 import { PageHeader } from '../components/PageHeader';
-import { budgetSpent, categoryComparison } from '../domain/finance';
-import { formatINR, monthLabel, parseINRAmount } from '../lib/format';
+import { budgetSpent, categoryComparison, monthKey } from '../domain/finance';
+import { formatINR, monthLabel, parseINRAmount, shortDate } from '../lib/format';
 
 function previousMonth(month: string) {
   const [year, monthNumber] = month.split('-').map(Number);
@@ -12,22 +12,23 @@ function previousMonth(month: string) {
 
 export function InsightsPage() {
   const { data, month } = useApp();
+  const timezone = data.profile.timezone;
   const [question, setQuestion] = useState('Which category changed the most compared with last month?');
   const [answer, setAnswer] = useState('');
   const [purchase, setPurchase] = useState('');
   const [purchaseResult, setPurchaseResult] = useState('');
-  const comparison = useMemo(() => categoryComparison(data.transactions, month, data.categories), [data.transactions, month, data.categories]);
+  const comparison = useMemo(() => categoryComparison(data.transactions, month, data.categories, timezone), [data.transactions, month, data.categories, timezone]);
   const previous = previousMonth(month);
-  const currentMonthRows = data.transactions.filter((row) => row.occurred_at.slice(0, 7) === month);
+  const currentMonthRows = data.transactions.filter((row) => monthKey(row.occurred_at, timezone) === month);
   const recurring = currentMonthRows.filter((row) => row.recurring);
   const rising = comparison.filter((item) => item.previousMinor > 0 && item.changeMinor >= item.previousMinor * 0.5).sort((a, b) => b.changeMinor - a.changeMinor);
   const overall = data.budgets.find((budget) => budget.category_id === null && budget.period_start.slice(0, 7) === month);
-  const remainingMinor = overall ? overall.limit_minor - Math.max(0, budgetSpent(data.transactions, overall)) : null;
+  const remainingMinor = overall ? overall.limit_minor - Math.max(0, budgetSpent(data.transactions, overall, timezone)) : null;
 
   function ask(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const normalized = question.toLowerCase();
-    if (!currentMonthRows.some((row) => row.transaction_type === 'expense') && !data.transactions.some((row) => row.occurred_at.slice(0, 7) === previous && row.transaction_type === 'expense')) {
+    if (!currentMonthRows.some((row) => row.transaction_type === 'expense') && !data.transactions.some((row) => monthKey(row.occurred_at, timezone) === previous && row.transaction_type === 'expense')) {
       setAnswer(`There isn’t enough transaction data to compare ${monthLabel(month)} with ${monthLabel(previous)}.`);
       return;
     }
@@ -91,7 +92,7 @@ export function InsightsPage() {
         {rising.length ? <div className="unusual-list">{rising.slice(0, 4).map((item) => <div className="unusual-row" key={item.id}><span className="unusual-arrow"><ArrowUpRight size={15} /></span><span><strong>{item.name} is up {Math.round((item.changeMinor / item.previousMinor) * 100)}%</strong><small>{formatINR(item.currentMinor)} this month vs {formatINR(item.previousMinor)} last month</small></span></div>)}<p className="algorithm-note">Flags appear when a category is at least 50% above a non-zero previous-month total. This is a prompt to review, not a judgment.</p></div> : <div className="chart-empty chart-empty--compact"><strong>No large shifts flagged</strong><span>We only flag categories that are at least 50% above last month.</span></div>}
       </article>
       <article className="panel recurring-panel"><div className="panel-header"><div><div className="panel-title">Recurring you marked</div><div className="panel-subtitle">Confirmed by your own label</div></div><span className="recurring-count">{recurring.length}</span></div>
-        {recurring.length ? <div className="recurring-list">{recurring.map((item) => <div className="recurring-row" key={item.id}><span className="recurring-dot" /><div><strong>{item.merchant}</strong><small>{item.description || 'Recurring transaction'} · {item.occurred_at.slice(0, 10)}</small></div><span>{formatINR(item.amount_minor)}</span></div>)}</div> : <div className="chart-empty chart-empty--compact"><strong>No recurring transactions marked</strong><span>Mark a transaction as recurring when you’re sure it repeats.</span></div>}
+        {recurring.length ? <div className="recurring-list">{recurring.map((item) => <div className="recurring-row" key={item.id}><span className="recurring-dot" /><div><strong>{item.merchant}</strong><small>{item.description || 'Recurring transaction'} · {shortDate(item.occurred_at, timezone)}</small></div><span>{formatINR(item.amount_minor)}</span></div>)}</div> : <div className="chart-empty chart-empty--compact"><strong>No recurring transactions marked</strong><span>Mark a transaction as recurring when you’re sure it repeats.</span></div>}
       </article>
     </section>
   </div>;

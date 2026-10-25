@@ -11,14 +11,17 @@ import { budgetSpent, categoryComparison, categoryTotals, monthlySummary, sumTra
 import { formatINR, monthLabel, percent, shortDate } from '../lib/format';
 import { saveTransaction } from '../lib/data';
 import type { TransactionInput } from '../domain/types';
+import { dateOnly } from '../domain/dates';
+import { monthKey } from '../domain/finance';
 
-function weeklySpending(transactions: ReturnType<typeof useApp>['data']['transactions'], month: string) {
+function weeklySpending(transactions: ReturnType<typeof useApp>['data']['transactions'], month: string, timezone: string) {
   const output = [
     { week: '1–7', expense: 0 }, { week: '8–14', expense: 0 }, { week: '15–21', expense: 0 }, { week: '22–31', expense: 0 },
   ];
   for (const row of transactions) {
-    if (row.occurred_at.slice(0, 7) !== month || (row.transaction_type !== 'expense' && row.transaction_type !== 'refund')) continue;
-    const day = Number(row.occurred_at.slice(8, 10));
+    const date = dateOnly(row.occurred_at, timezone);
+    if (monthKey(date, timezone) !== month || (row.transaction_type !== 'expense' && row.transaction_type !== 'refund')) continue;
+    const day = Number(date.slice(8, 10));
     const index = day <= 7 ? 0 : day <= 14 ? 1 : day <= 21 ? 2 : 3;
     output[index].expense += row.transaction_type === 'refund' ? -row.amount_minor : row.amount_minor;
   }
@@ -31,22 +34,24 @@ function CustomTooltip({ active, payload, label }: { active?: boolean; payload?:
 }
 
 export function DashboardPage() {
-  const { data, month, refresh, setBusy, busy } = useApp();
+  const { data, month, refresh, setBusy, busy, readOnly } = useApp();
+  const timezone = data.profile.timezone;
   const { notify } = useToast();
   const [addOpen, setAddOpen] = useState(false);
-  const summary = useMemo(() => monthlySummary(data.transactions, month), [data.transactions, month]);
-  const categories = useMemo(() => categoryTotals(data.transactions, month, data.categories), [data.transactions, month, data.categories]);
-  const comparison = useMemo(() => categoryComparison(data.transactions, month, data.categories).filter((item) => item.changeMinor !== 0).slice(0, 3), [data.transactions, month, data.categories]);
+  const summary = useMemo(() => monthlySummary(data.transactions, month, timezone), [data.transactions, month, timezone]);
+  const categories = useMemo(() => categoryTotals(data.transactions, month, data.categories, timezone), [data.transactions, month, data.categories, timezone]);
+  const comparison = useMemo(() => categoryComparison(data.transactions, month, data.categories, timezone).filter((item) => item.changeMinor !== 0).slice(0, 3), [data.transactions, month, data.categories, timezone]);
   const totalBudget = data.budgets.find((item) => item.category_id === null && item.period_start.slice(0, 7) === month);
-  const spent = totalBudget ? Math.max(0, budgetSpent(data.transactions, totalBudget)) : summary.expensesMinor;
+  const spent = totalBudget ? Math.max(0, budgetSpent(data.transactions, totalBudget, timezone)) : summary.expensesMinor;
   const remaining = totalBudget ? totalBudget.limit_minor - spent : null;
-  const chart = weeklySpending(data.transactions, month);
-  const recent = [...data.transactions].filter((row) => row.occurred_at.slice(0, 7) === month).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 5);
-  const currentIncome = sumTransactions(data.transactions, month).incomeMinor;
+  const chart = weeklySpending(data.transactions, month, timezone);
+  const recent = [...data.transactions].filter((row) => monthKey(row.occurred_at, timezone) === month).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at)).slice(0, 5);
+  const currentIncome = sumTransactions(data.transactions, month, timezone).incomeMinor;
   const monthChange = summary.expenseChangePercent;
   const greeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening';
 
   async function addTransaction(value: TransactionInput) {
+    if (readOnly) return;
     setBusy(true);
     try {
       await saveTransaction(value);
@@ -61,8 +66,8 @@ export function DashboardPage() {
   }
 
   return (
-    <div className="page-content">
-      <PageHeader eyebrow={monthLabel(month).toUpperCase()} title={`${greeting}, ${data.profile.display_name.split(' ')[0]}`} description="Here’s your spending picture, all in one place." action={<button className="button button--primary" onClick={() => setAddOpen(true)}><Plus size={17} /> Add transaction</button>} />
+    <div className="page-content" data-read-only={readOnly}>
+      <PageHeader eyebrow={monthLabel(month).toUpperCase()} title={`${greeting}, ${data.profile.display_name.split(' ')[0]}`} description="Here’s your spending picture, all in one place." action={!readOnly && <button className="button button--primary" onClick={() => setAddOpen(true)}><Plus size={17} /> Add transaction</button>} />
 
       <section className="metric-grid" aria-label="Monthly financial summary">
         <article className="metric-card metric-card--primary"><div className="metric-topline"><span>Net spending</span><span className="metric-icon"><WalletCards size={17} /></span></div><strong>{formatINR(summary.expensesMinor)}</strong><div className="metric-foot"><span className={monthChange === null ? '' : monthChange > 0 ? 'tone-negative' : monthChange < 0 ? 'tone-positive' : ''}>{monthChange === null ? 'No previous month data' : <>{monthChange > 0 ? <ArrowUpRight size={14} /> : monthChange < 0 ? <ArrowDownRight size={14} /> : null}{percent(monthChange)} vs last month</>}</span><span>Refunds reduce spending</span></div></article>
@@ -95,7 +100,7 @@ export function DashboardPage() {
             <div className="progress-track"><div className={`progress-fill ${spent / totalBudget.limit_minor >= 1 ? 'progress-fill--over' : spent / totalBudget.limit_minor >= 0.8 ? 'progress-fill--warn' : ''}`} style={{ width: `${Math.min(100, totalBudget.limit_minor ? (spent / totalBudget.limit_minor) * 100 : 0)}%` }} /></div>
             <div className="budget-status-line"><span>{Math.round(totalBudget.limit_minor ? (spent / totalBudget.limit_minor) * 100 : 0)}% of monthly tracking budget</span>{spent / totalBudget.limit_minor >= 1 ? <span className="status-pill status-pill--danger">Over budget</span> : spent / totalBudget.limit_minor >= 0.8 ? <span className="status-pill status-pill--warning">Nearly there</span> : <span className="status-pill status-pill--good">On track</span>}</div>
             <p className="note-line"><CircleHelp size={14} />Budget values are set by you; they are not bank credit limits.</p>
-          </div> : <div className="budget-empty"><p>Give your month a helpful spending boundary.</p><Link className="button button--soft" to="/budgets">Set a budget <ArrowRight size={15} /></Link></div>}
+          </div> : <div className="budget-empty"><p>Give your month a helpful spending boundary.</p>{!readOnly && <Link className="button button--soft" to="/budgets">Set a budget <ArrowRight size={15} /></Link>}</div>}
         </article>
 
         <article className="panel movers-panel">
@@ -110,13 +115,13 @@ export function DashboardPage() {
           {recent.length ? <div className="recent-list">{recent.map((transaction) => {
             const category = data.categories.find((item) => item.id === transaction.category_id);
             const amountPrefix = transaction.transaction_type === 'income' || transaction.transaction_type === 'refund' ? '+' : transaction.transaction_type === 'transfer' ? '' : '−';
-            return <div className="recent-row" key={transaction.id}><div className="transaction-icon" style={{ '--category-color': category?.color ?? '#9aa5b5' } as React.CSSProperties}><span>{category?.name.slice(0, 1) ?? '·'}</span></div><div className="recent-main"><strong>{transaction.merchant}</strong><span>{category?.name ?? 'Uncategorized'} · {shortDate(transaction.occurred_at)}</span></div><div className={`recent-amount ${transaction.transaction_type === 'income' || transaction.transaction_type === 'refund' ? 'tone-positive' : ''}`}><strong>{amountPrefix}{formatINR(transaction.amount_minor)}</strong>{transaction.is_demo && <span className="demo-badge">DEMO</span>}</div></div>;
+            return <div className="recent-row" key={transaction.id}><div className="transaction-icon" style={{ '--category-color': category?.color ?? '#9aa5b5' } as React.CSSProperties}><span>{category?.name.slice(0, 1) ?? '·'}</span></div><div className="recent-main"><strong>{transaction.merchant}</strong><span>{category?.name ?? 'Uncategorized'} · {shortDate(transaction.occurred_at, timezone)}</span></div><div className={`recent-amount ${transaction.transaction_type === 'income' || transaction.transaction_type === 'refund' ? 'tone-positive' : ''}`}><strong>{amountPrefix}{formatINR(transaction.amount_minor)}</strong>{transaction.is_demo && <span className="demo-badge">DEMO</span>}</div></div>;
           })}</div> : <div className="chart-empty chart-empty--compact"><strong>Nothing here yet</strong><span>Your saved activity will show up here.</span></div>}
         </article>
         <article className="panel cards-preview-panel">
           <div className="panel-header"><div><div className="panel-title">Your cards</div><div className="panel-subtitle">{data.cards.length} saved card{data.cards.length === 1 ? '' : 's'}</div></div><Link className="panel-link" to="/cards">Manage <ArrowRight size={14} /></Link></div>
           {data.cards.slice(0, 3).map((card, index) => <div className="mini-card-row" key={card.id}><div className={`mini-card-chip mini-card-chip--${index % 4}`}><span /></div><div><strong>{card.catalog.card_name}</strong><span>{card.catalog.issuer_name}</span></div><div className="mini-card-verify" title="Card name verified; rewards not verified"><span className="verify-dot" />Identity</div></div>)}
-          <Link to="/cards" className="add-card-dash"><span><Plus size={16} /></span>Add a card to your wallet</Link>
+          {!readOnly && <Link to="/cards" className="add-card-dash"><span><Plus size={16} /></span>Add a card to your wallet</Link>}
           <div className="rewards-no-data"><BadgeIndianRupee size={15} /><span>Reward estimates appear only when card rules are verified.</span></div>
         </article>
       </section>
