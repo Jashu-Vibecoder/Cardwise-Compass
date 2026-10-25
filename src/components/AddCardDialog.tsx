@@ -18,12 +18,12 @@ function amountInput(value: number | null | undefined) {
   return value == null ? '' : (value / 100).toFixed(2);
 }
 
-export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; initialCard?: WalletCard }) {
+export function AddCardDialog({ onClose, initialCard, initialCatalogCard, onSaved }: { onClose: () => void; initialCard?: WalletCard; initialCatalogCard?: CatalogCard; onSaved?: (cardId: string) => void }) {
   const { data, refresh, setBusy, busy } = useApp();
   const { notify } = useToast();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<CatalogCard[]>([]);
-  const [selected, setSelected] = useState<CatalogCard | null>(initialCard?.catalog ?? null);
+  const [selected, setSelected] = useState<CatalogCard | null>(initialCard?.catalog ?? initialCatalogCard ?? null);
   const [searching, setSearching] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const [budget, setBudget] = useState(initialCard?.monthly_budget_minor == null ? '' : (initialCard.monthly_budget_minor / 100).toFixed(2));
@@ -38,7 +38,6 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
   const [error, setError] = useState('');
   const searchRef = useRef<HTMLInputElement>(null);
   const searchRequest = useRef(0);
-  const existing = selected ? data.cards.find((card) => card.catalog_card_id === selected.id) : undefined;
 
   useEffect(() => {
     if (initialCard) return;
@@ -68,16 +67,15 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
     setSelected(card);
     setQuery('');
     setError('');
-    const saved = data.cards.find((item) => item.catalog_card_id === card.id);
-    setBudget(saved?.monthly_budget_minor == null ? '' : (saved.monthly_budget_minor / 100).toFixed(2));
-    setNickname(saved?.nickname ?? '');
-    setLastFour(saved?.last_four ?? '');
-    setCreditLimit(amountInput(saved?.credit_limit_minor));
-    setStatementBalance(amountInput(saved?.statement_balance_minor));
-    setDueDate(saved?.due_date ?? '');
-    setMinimumDue(amountInput(saved?.minimum_due_minor));
-    setRewardPoints(saved?.reward_points?.toString() ?? '');
-    setPersonalNotes(saved?.personal_notes ?? '');
+    setBudget('');
+    setNickname('');
+    setLastFour('');
+    setCreditLimit('');
+    setStatementBalance('');
+    setDueDate('');
+    setMinimumDue('');
+    setRewardPoints('');
+    setPersonalNotes('');
   }
 
   function keyNavigate(event: React.KeyboardEvent<HTMLInputElement>) {
@@ -104,7 +102,7 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
     setError('');
     setBusy(true);
     try {
-      await saveWalletCard(selected, budgetMinor, initialCard?.id ?? existing?.id, nickname.trim() || null, lastFour || null, {
+      const savedCardId = await saveWalletCard(selected, budgetMinor, initialCard?.id, nickname.trim() || null, lastFour || null, {
         credit_limit_minor: creditLimitMinor,
         statement_balance_minor: statementBalanceMinor,
         due_date: dueDate || null,
@@ -113,14 +111,15 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
         personal_notes: personalNotes.trim() || null,
       });
       await refresh();
-      notify(existing ? 'Card details updated in your wallet.' : 'Card added to your wallet.');
+      notify(initialCard ? 'Card details updated in your wallet.' : 'Card added to your wallet.');
+      onSaved?.(savedCardId);
       onClose();
     } catch (issue) {
       setError(issue instanceof Error ? issue.message : 'This card could not be saved.');
     } finally { setBusy(false); }
   }
 
-  return <Modal title={initialCard ? 'Edit saved card' : 'Add a card'} description={initialCard ? 'Update the tracking details for this card.' : 'Search the catalogue, then choose what you want to track.'} onClose={onClose} size="wide">
+  return <Modal title={initialCard ? 'Edit saved card' : 'Add a card'} description={initialCard ? 'Update the tracking details for this card.' : initialCatalogCard ? 'Enter this card’s details before linking it to your transaction.' : 'Search the catalogue, then choose what you want to track.'} onClose={onClose} size="wide">
     <div className="add-card-body">
       {!selected ? <div className="catalog-search-area">
         <label className="field"><span>Search cards</span><div className="catalog-search-input"><Search size={18} /><input ref={searchRef} autoFocus autoComplete="off" value={query} onChange={(event) => { setQuery(event.target.value); setActiveIndex(-1); setError(''); }} onKeyDown={keyNavigate} placeholder="Search by bank or credit card name" role="combobox" aria-expanded={results.length > 0} aria-controls="catalog-suggestions" aria-autocomplete="list" /></div></label>
@@ -149,7 +148,7 @@ export function AddCardDialog({ onClose, initialCard }: { onClose: () => void; i
         </div>
         <div className="verification-note"><Sparkles size={15} /><span>{selected.verification_status === 'identity_verified' ? 'We verified the card name from an issuer source. Reward rates, fees, and terms are not yet verified, so estimates stay off.' : selected.verification_status === 'unverified' ? 'This is an unverified catalogue candidate. Its card details and reward claims should be reviewed before relying on them.' : 'Only verified catalogue details are used for reward estimates.'}</span></div>
         {error && <div className="inline-error" role="alert">{error}</div>}
-        <div className="modal-actions"><button className="button button--quiet" type="button" onClick={onClose}>Cancel</button><button className="button button--primary" type="submit" disabled={busy}>{busy ? 'Saving…' : existing ? 'Update saved card' : 'Add to my cards'}</button></div>
+        <div className="modal-actions"><button className="button button--quiet" type="button" onClick={onClose}>Cancel</button><button className="button button--primary" type="submit" disabled={busy}>{busy ? 'Saving…' : initialCard ? 'Update saved card' : 'Add to my cards'}</button></div>
       </form>}
     </div>
   </Modal>;

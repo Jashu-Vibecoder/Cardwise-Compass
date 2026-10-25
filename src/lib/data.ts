@@ -16,6 +16,7 @@ import { isPublicDemoLocation, PREVIEW_STORAGE_KEY, PUBLIC_DEMO_STORAGE_KEY, use
 import { fetchAllPages } from '../domain/pagination';
 import { searchCatalogRecords } from '../domain/catalog-search';
 import { readFunctionErrorMessage } from './function-errors';
+import { findWalletCardToUpdate } from '../domain/wallet-cards';
 
 const PREVIEW_KEY = PREVIEW_STORAGE_KEY;
 const PREVIEW_USER = 'preview-aarav-mehta';
@@ -267,7 +268,7 @@ export async function saveWalletCard(catalogCard: CatalogCard, monthlyBudgetMino
 }): Promise<string> {
   if (isLocalWorkspace()) {
     const data = readLocalWorkspace();
-    const found = data.cards.find((card) => card.catalog_card_id === catalogCard.id);
+    const found = findWalletCardToUpdate(data.cards, existingId);
     if (found) {
       found.monthly_budget_minor = monthlyBudgetMinor;
       found.nickname = nickname;
@@ -290,7 +291,7 @@ export async function saveWalletCard(catalogCard: CatalogCard, monthlyBudgetMino
   const client = requireSupabase();
   const result = existingId
     ? await client.from('user_cards').update(payload).eq('id', existingId).select('id').single()
-    : await client.from('user_cards').upsert(payload, { onConflict: 'user_id,catalog_card_id', ignoreDuplicates: false }).select('id').single();
+    : await client.from('user_cards').insert(payload).select('id').single();
   assertOk(result.error);
   if (!result.data) throw new Error('Card could not be saved to your wallet.');
   return result.data.id;

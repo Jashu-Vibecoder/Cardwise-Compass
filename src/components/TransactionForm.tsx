@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Transaction, TransactionInput, TransactionType } from '../domain/types';
+import type { CatalogCard, Transaction, TransactionInput, TransactionType } from '../domain/types';
 import { currencySymbol, parseINRAmount } from '../lib/format';
 import { useApp } from '../lib/app-context';
-import { saveWalletCard } from '../lib/data';
 import { dateOnly, timestampAtLocalNoon } from '../domain/dates';
+import { AddCardDialog } from './AddCardDialog';
 
 export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
   initial?: Transaction;
@@ -12,7 +12,7 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
   onCancel: () => void;
   busy: boolean;
 }) {
-  const { data, setBusy, isDemo } = useApp();
+  const { data, isDemo } = useApp();
   const [amount, setAmount] = useState(initial ? (initial.amount_minor / 100).toFixed(2) : '');
   const [merchant, setMerchant] = useState(initial?.merchant ?? '');
   const [description, setDescription] = useState(initial?.description ?? '');
@@ -24,9 +24,8 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
   const [channel, setChannel] = useState(initial?.spend_channel ?? 'unknown');
   const [recurring, setRecurring] = useState(initial?.recurring ?? false);
   const [validation, setValidation] = useState('');
-  const linkedCatalogIds = new Set(data.cards.map((card) => card.catalog_card_id));
+  const [pendingCatalogCard, setPendingCatalogCard] = useState<CatalogCard | null>(null);
   const otherCatalogCards = data.catalog
-    .filter((card) => !linkedCatalogIds.has(card.id))
     .sort((a, b) => a.issuer_name.localeCompare(b.issuer_name) || a.card_name.localeCompare(b.card_name));
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -36,29 +35,16 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
     if (!merchant.trim()) return setValidation('Merchant or description is required.');
     if (!date || Number.isNaN(Date.parse(`${date}T00:00:00`))) return setValidation('Choose a valid transaction date.');
     setValidation('');
-    let selectedCardId = cardId || null;
-    if (cardId.startsWith('catalog:')) {
-      const catalogCard = data.catalog.find((card) => card.id === cardId.slice('catalog:'.length));
-      if (!catalogCard) return setValidation('That card is no longer available. Choose another card.');
-      setBusy(true);
-      try {
-        selectedCardId = await saveWalletCard(catalogCard, null);
-      } catch (error) {
-        setValidation(error instanceof Error ? error.message : 'The card could not be added to your wallet.');
-        return;
-      } finally {
-        setBusy(false);
-      }
-    }
+    if (cardId.startsWith('catalog:')) return setValidation('Complete the card details form before saving this transaction.');
     await onSubmit({
-      card_id: selectedCardId, category_id: categoryId || null, amount_minor: amountMinor,
+      card_id: cardId || null, category_id: categoryId || null, amount_minor: amountMinor,
       currency: data.profile.preferred_currency, transaction_type: type, merchant: merchant.trim(),
       description: description.trim() || null, occurred_at: timestampAtLocalNoon(date, data.profile.timezone),
       source: initial?.source ?? 'manual', is_demo: initial?.is_demo ?? isDemo, recurring, spend_channel: channel,
     });
   }
 
-  return (
+  return <>
     <form className="form-stack modal-form" onSubmit={(event) => void submit(event)}>
       <div className="form-grid form-grid--two">
         <label className="field"><span>Amount <i>*</i></span><div className="money-input"><span>{currencySymbol(data.profile.preferred_currency)}</span><input autoFocus inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="0.00" aria-label={`Amount in ${data.profile.preferred_currency}`} /></div></label>
@@ -70,7 +56,15 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
       </div>
       <div className="form-grid form-grid--two">
         <label className="field"><span>Category</span><select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}><option value="">Uncategorized</option>{data.categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select></label>
-        <label className="field"><span>Card used</span><select value={cardId} onChange={(event) => setCardId(event.target.value)}><option value="">No card linked</option>{data.cards.length > 0 && <optgroup label="My cards">{data.cards.map((card) => <option key={card.id} value={card.id}>{card.catalog.issuer_name} · {card.catalog.card_name}</option>)}</optgroup>}{otherCatalogCards.length > 0 && <optgroup label="Add a card from the catalogue">{otherCatalogCards.map((card) => <option key={card.id} value={`catalog:${card.id}`}>{card.issuer_name} · {card.card_name} (add to My Cards)</option>)}</optgroup>}</select>{otherCatalogCards.length > 0 && <small>Choosing another catalogue card adds it to My Cards, then links this transaction.</small>}</label>
+        <label className="field"><span>Card used</span><select value={cardId} onChange={(event) => {
+          const value = event.target.value;
+          if (value.startsWith('catalog:')) {
+            const catalogCard = data.catalog.find((card) => card.id === value.slice('catalog:'.length));
+            if (catalogCard) { setCardId(''); setPendingCatalogCard(catalogCard); setValidation(''); }
+            return;
+          }
+          setCardId(value);
+        }}><option value="">No card linked</option>{data.cards.length > 0 && <optgroup label="My cards">{data.cards.map((card) => <option key={card.id} value={card.id}>{card.catalog.issuer_name} · {card.catalog.card_name}{card.last_four ? ` ·· ${card.last_four}` : ''}</option>)}</optgroup>}{otherCatalogCards.length > 0 && <optgroup label="Add another card from any bank">{otherCatalogCards.map((card) => <option key={card.id} value={`catalog:${card.id}`}>{card.issuer_name} · {card.card_name} (enter details)</option>)}</optgroup>}</select>{otherCatalogCards.length > 0 && <small>Choosing a catalogue card opens its full details form before it’s linked here.</small>}</label>
       </div>
       <label className="field"><span>Notes <small>Optional</small></span><input value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Add a note for your records" /></label>
       <div className="form-grid form-grid--two">
@@ -80,5 +74,6 @@ export function TransactionForm({ initial, onSubmit, onCancel, busy }: {
       {validation && <div className="inline-error" role="alert">{validation}</div>}
       <div className="modal-actions"><button className="button button--quiet" type="button" onClick={onCancel}>Cancel</button><button className="button button--primary" type="submit" disabled={busy}>{busy ? 'Saving…' : initial ? 'Save changes' : 'Add transaction'}</button></div>
     </form>
-  );
+    {pendingCatalogCard && <AddCardDialog initialCatalogCard={pendingCatalogCard} onClose={() => setPendingCatalogCard(null)} onSaved={(savedCardId) => setCardId(savedCardId)} />}
+  </>;
 }
