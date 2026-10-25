@@ -10,7 +10,7 @@ Audit source: `Cardwise Compass Bug Report and Patch Prompt.docx` (25 October 20
 | H2 | Reward rule eligibility and double counting | fixed | `0f357ec`, `8ee590a` | `src/domain/types.ts`, `src/domain/finance.ts`, `src/lib/data.ts`, `src/pages/RewardsPage.tsx` | `src/domain/finance.test.ts` |
 | H3 | Month picker loses current month | fixed | `bef8515` | `src/components/AppShell.tsx`, `src/domain/months.ts` | `src/domain/months.test.ts` |
 | H4 | Custom-category budget blocks account deletion | needs manual verification | `09f05b3`, `482863e` | `supabase/migrations/202610250002_h4_budget_category_cascade.sql`, `supabase/functions/delete-account/index.ts` | Live Postgres test unavailable; inspect migration and function manually |
-| H5 | Vercel deep-link 404 | needs manual verification | `e840726`, `46cfa0b` | `vercel.json` | Vercel direct-link check pending |
+| H5 | Vercel deep-link 404 | fixed | `e840726`, `46cfa0b` | `vercel.json` | Vercel preview `/transactions` returned HTTP 200 |
 | M1 | Category chart omits uncategorized spend | fixed | `651dd14` | `src/domain/finance.ts` | `src/domain/finance.test.ts` |
 | M2 | Transaction loading silently stops at 1,000 | fixed | `ddd7b49` | `src/domain/pagination.ts`, `src/lib/data.ts` | `src/domain/pagination.test.ts` |
 | M3 | Catalogue search misses multi-word queries | needs manual verification | `23504ea` | `src/domain/catalog-search.ts`, `src/lib/data.ts`, `src/components/AddCardDialog.tsx` | `src/domain/catalog-search.test.ts` |
@@ -237,7 +237,7 @@ found 0 vulnerabilities
 Exit code: 0
 ```
 
-The browser tool exposed no browser window. A local Vite server started, but the in-app browser was unavailable, so visual/user-journey checks were not represented as completed. The preview deployment is READY, but this report does not claim end-to-end production verification.
+The browser tool exposed no browser window. A local Vite server started, but the in-app browser was unavailable, so visual/user-journey checks were not represented as completed. A read-only request to the public Vercel preview returned HTTP 200 for both `/` and `/transactions`. The preview deployment is READY, but this report does not claim end-to-end production verification.
 
 ## Migration notes
 
@@ -258,7 +258,7 @@ No migration was applied to a live database. Required follow-up: apply and verif
 - [ ] Exercise Supabase sign-in/sign-up/session restore, RLS isolation, demo `?demo=1` isolation, and no cross-account reads/writes.
 - [ ] Add, edit, and delete an account with a custom category budget; verify Edge Function CORS, stable response, and client-visible error.
 - [ ] Test CSV import in staging for semicolon/tab, exact duplicates, partial batch failure, and refreshed totals; test CSV exports in Excel/LibreOffice.
-- [ ] Open Vercel `/transactions` directly and refresh; verify SPA rewrite.
+- [x] Request Vercel `/transactions` directly; preview returned HTTP 200 through the SPA rewrite. Visual refresh check remains pending.
 - [ ] Test timezone display in a non-IST browser and timezone-boundary transaction date entry.
 - [ ] Use a browser for card search/add with multiple copies, reward calculation and caps, month navigation, transaction totals, modal keyboard behavior, and responsive/mobile layout.
 - [ ] Complete the forgot-password redirect allowlist and recovery-email flow against the intended Supabase project.
